@@ -1,3 +1,8 @@
+7.4.1  (2026-04-23)
+- Fix: install graperoot dependency so graph_continue / graph_retrieve work in-process.
+  Without it, Pro fell back to a localhost dashboard on :8787 and returned HTTP 501 for
+  retrieval calls. Auto-update kicks this in on next `dgc-pro` invocation.
+
 7.4.0  (2026-04-22)
 - Initial Pro release.
 - Symbol-level reads (file::symbol) — reads 30-line function body instead of 400-line file
