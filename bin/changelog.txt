@@ -1,3 +1,11 @@
+1.0.3  (2026-04-23)
+- Orphan MCP server cleanup: every `dgc-pro` invocation now scans for stray server
+  processes from previous hard-killed runs (kill -9, Force Quit, crash, power loss)
+  and wipes them. Cross-platform via stdlib — macOS (ps), Linux (ps), Windows (wmic).
+- Normal Ctrl+C / exit behaviour unchanged — server is killed via the finally block
+  on SIGTERM / SIGINT as before. The new cleanup only fires when the finally block
+  never ran (parent was SIGKILLed).
+
 1.0.2  (2026-04-23)
 - Installer auto-detects and installs ripgrep across macOS (brew), Linux (apt/dnf/pacman),
   and Windows (winget/scoop/choco). Unblocks fallback_rg + graph_grep_all on first run.
