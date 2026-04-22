@@ -1,3 +1,8 @@
+1.0.2  (2026-04-23)
+- Installer auto-detects and installs ripgrep across macOS (brew), Linux (apt/dnf/pacman),
+  and Windows (winget/scoop/choco). Unblocks fallback_rg + graph_grep_all on first run.
+- Patch release — bundled server unchanged since 1.0.1.
+
 1.0.1  (2026-04-23)
 - Initial commercial release of GrapeRoot Pro.
 - Symbol-level reads (file::symbol) — reads 30-line function body instead of 400-line file.

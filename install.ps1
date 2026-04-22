@@ -179,7 +179,7 @@ try {
         Write-Host "[install] Added $binDir to user PATH"
     }
 
-    $ver = if (Test-Path "$INSTALL_DIR\bin\version.txt") { (Get-Content "$INSTALL_DIR\bin\version.txt" -Raw).Trim() } else { "1.0.1" }
+    $ver = if (Test-Path "$INSTALL_DIR\bin\version.txt") { (Get-Content "$INSTALL_DIR\bin\version.txt" -Raw).Trim() } else { "1.0.2" }
     Write-Host ""
     Write-Host "╔══════════════════════════════════════════════════════════════╗" -ForegroundColor Green
     Write-Host "║  Install complete.  GrapeRoot Pro v$ver" -ForegroundColor Green
