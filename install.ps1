@@ -22,7 +22,7 @@ try {
 
     Write-Host ""
     Write-Host "╔══════════════════════════════════════════════════════════════╗" -ForegroundColor Cyan
-    Write-Host "║           GrapeRoot Pro — Installer  ·  v7.4                 ║" -ForegroundColor Cyan
+    Write-Host "║           GrapeRoot Pro — Installer  ·  v1.0                 ║" -ForegroundColor Cyan
     Write-Host "╚══════════════════════════════════════════════════════════════╝" -ForegroundColor Cyan
     Write-Host ""
 
@@ -84,6 +84,21 @@ try {
         exit 1
     }
     Write-Host "[check] Python:       $(& $pythonCmd --version)"
+
+    if (Get-Command rg -ErrorAction SilentlyContinue) {
+        Write-Host "[check] ripgrep:      $(rg --version | Select-Object -First 1)"
+    } else {
+        Write-Host "[check] ripgrep:      NOT FOUND" -ForegroundColor Yellow
+        if ((Get-Command winget -ErrorAction SilentlyContinue) -and (Confirm-Install "[check] Install ripgrep via winget?")) {
+            winget install -e --id BurntSushi.ripgrep.MSVC --accept-source-agreements --accept-package-agreements 2>&1 | Out-Null
+        } elseif ((Get-Command scoop -ErrorAction SilentlyContinue) -and (Confirm-Install "[check] Install ripgrep via scoop?")) {
+            scoop install ripgrep 2>&1 | Out-Null
+        } elseif ((Get-Command choco -ErrorAction SilentlyContinue) -and (Confirm-Install "[check] Install ripgrep via Chocolatey?")) {
+            choco install ripgrep -y 2>&1 | Out-Null
+        } else {
+            Write-Host "[warn] Install later via: winget install BurntSushi.ripgrep.MSVC   (needed for fallback_rg / graph_grep_all)" -ForegroundColor Yellow
+        }
+    }
 
     if (Get-Command claude -ErrorAction SilentlyContinue) {
         Write-Host "[check] Claude Code:  installed"
@@ -164,7 +179,7 @@ try {
         Write-Host "[install] Added $binDir to user PATH"
     }
 
-    $ver = if (Test-Path "$INSTALL_DIR\bin\version.txt") { (Get-Content "$INSTALL_DIR\bin\version.txt" -Raw).Trim() } else { "7.4.0" }
+    $ver = if (Test-Path "$INSTALL_DIR\bin\version.txt") { (Get-Content "$INSTALL_DIR\bin\version.txt" -Raw).Trim() } else { "1.0.1" }
     Write-Host ""
     Write-Host "╔══════════════════════════════════════════════════════════════╗" -ForegroundColor Green
     Write-Host "║  Install complete.  GrapeRoot Pro v$ver" -ForegroundColor Green

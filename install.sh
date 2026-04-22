@@ -18,7 +18,7 @@ LICENSE_KEY="${1:-${GRAPEROOT_LICENSE_KEY:-}}"
 # ══════════════════════════════════════════════════════════════════════════════
 echo ""
 echo "╔══════════════════════════════════════════════════════════════╗"
-echo "║           GrapeRoot Pro — Installer  ·  v7.4                 ║"
+echo "║           GrapeRoot Pro — Installer  ·  v1.0                 ║"
 echo "╚══════════════════════════════════════════════════════════════╝"
 echo ""
 
@@ -78,6 +78,32 @@ if [[ -z "$PYTHON" ]]; then
   esac
 fi
 echo "[check] Python:       $($PYTHON --version)"
+
+if ! command -v rg >/dev/null 2>&1; then
+  echo "[check] ripgrep:      NOT FOUND"
+  case "$OS_TYPE" in
+    Darwin*)
+      if command -v brew >/dev/null 2>&1 && confirm "[check] Install ripgrep via Homebrew?"; then
+        brew install ripgrep
+      else
+        echo "[warn] Install later:  brew install ripgrep   (needed for fallback_rg / graph_grep_all)"
+      fi
+      ;;
+    Linux*)
+      if command -v apt-get >/dev/null 2>&1 && confirm "[check] Install ripgrep via apt? (sudo)"; then
+        sudo apt-get install -y ripgrep
+      elif command -v dnf >/dev/null 2>&1 && confirm "[check] Install ripgrep via dnf? (sudo)"; then
+        sudo dnf install -y ripgrep
+      elif command -v pacman >/dev/null 2>&1 && confirm "[check] Install ripgrep via pacman? (sudo)"; then
+        sudo pacman -S --noconfirm ripgrep
+      else
+        echo "[warn] Install ripgrep from your package manager (needed for fallback_rg / graph_grep_all)"
+      fi
+      ;;
+  esac
+else
+  echo "[check] ripgrep:      $(rg --version 2>/dev/null | head -1)"
+fi
 
 if ! command -v claude >/dev/null 2>&1; then
   echo "[check] Claude Code:  NOT FOUND"
@@ -166,7 +192,7 @@ if ! grep -q ".graperoot-pro/bin" "$SHELL_RC" 2>/dev/null; then
   echo "[install] Added $INSTALL_DIR/bin to PATH in $SHELL_RC"
 fi
 
-VER=$(cat "$INSTALL_DIR/bin/version.txt" 2>/dev/null || echo "7.4.0")
+VER=$(cat "$INSTALL_DIR/bin/version.txt" 2>/dev/null || echo "1.0.1")
 echo ""
 echo "╔══════════════════════════════════════════════════════════════╗"
 echo "║  Install complete.  GrapeRoot Pro v$VER                    ║"
