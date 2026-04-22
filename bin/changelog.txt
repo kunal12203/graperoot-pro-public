@@ -1,3 +1,12 @@
+1.0.4  (2026-04-23)
+- Security: MCP server now binds to 127.0.0.1 only (was 0.0.0.0). On public wifi /
+  office LANs, other machines could previously call graph_read to exfiltrate source.
+  Fixed in all 4 bind points in the server.
+- Security: dashboard session cookie changed to SameSite=Lax + explicit Origin guard
+  on all cookie-authed POSTs (login/logout/revoke-device). Blocks cross-site CSRF
+  even when browsers misbehave.
+- Security: ADMIN_TOKEN bearer comparison is now constant-time.
+
 1.0.3  (2026-04-23)
 - Orphan MCP server cleanup: every `dgc-pro` invocation now scans for stray server
   processes from previous hard-killed runs (kill -9, Force Quit, crash, power loss)
