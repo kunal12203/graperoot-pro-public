@@ -1,0 +1,8 @@
+7.4.0  (2026-04-22)
+- Initial Pro release.
+- Symbol-level reads (file::symbol) — reads 30-line function body instead of 400-line file
+- Priority-queue action memory — retains meaningful reads/edits across sessions
+- Confidence-calibrated retrieval — safety-net grep at high confidence so weak signal still triggers exploration
+- Cross-turn deduplication — already-read content returns a pointer, not bytes
+- Benchmarked -29% cost vs GrapeRoot Free at +1.4 quality (nuon codebase, 25 prompts)
+
