@@ -1,7 +1,8 @@
-# GrapeRoot Pro — runtime launcher (Windows)
+# GrapeRoot Pro - runtime launcher (Windows)
 # Called by dgc-pro.cmd / dgc-pro.ps1 shims.
 
 $ErrorActionPreference = "Stop"
+$ProgressPreference = "SilentlyContinue"   # makes IWR 40x faster on PS 5.1
 try {
     [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 -bor [Net.SecurityProtocolType]::Tls13
 } catch { try { [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 } catch {} }
@@ -41,7 +42,7 @@ function Self-Update {
         if ([version]$remoteVer -le [version]$localVer) { return }
     } catch { return }
 
-    Write-Host "[update] GrapeRoot Pro $localVer → $remoteVer" -ForegroundColor Cyan
+    Write-Host "[update] GrapeRoot Pro $localVer -> $remoteVer" -ForegroundColor Cyan
     $resp = Verify-Online
     if ($resp -and $resp.valid -and $resp.download_url) {
         $tmp = Join-Path $env:TEMP "grp-pro-update.tgz"
@@ -50,8 +51,17 @@ function Self-Update {
             & tar -xzf $tmp -C $InstallDir --strip-components=1
             Remove-Item $tmp -ErrorAction SilentlyContinue
             foreach ($f in @("launch_pro.ps1","dgc-pro.cmd","dgc-pro.ps1","version.txt","changelog.txt")) {
-                try { Invoke-WebRequest "$R2/bin/$f" -OutFile (Join-Path $BinDir "$f.new") -UseBasicParsing -TimeoutSec 15 } catch { continue }
-                Move-Item (Join-Path $BinDir "$f.new") (Join-Path $BinDir $f) -Force
+                $dst = Join-Path $BinDir "$f.new"
+                $ok = $false
+                # R2 first, GitHub fallback
+                foreach ($src in @("$R2/bin/$f", "$BaseUrl/bin/$f")) {
+                    try {
+                        Invoke-WebRequest $src -OutFile $dst -UseBasicParsing -TimeoutSec 15
+                        if ((Get-Item $dst).Length -gt 0) { $ok = $true; break }
+                    } catch { continue }
+                }
+                if ($ok) { Move-Item $dst (Join-Path $BinDir $f) -Force }
+                else { Remove-Item $dst -ErrorAction SilentlyContinue }
             }
             if (Test-Path "$BinDir\changelog.txt") {
                 Get-Content "$BinDir\changelog.txt" -TotalCount 20 | ForEach-Object { Write-Host $_ }
@@ -76,7 +86,7 @@ function Check-License {
     }
     $resp = Verify-Online
     if (-not $resp) {
-        # Offline grace — allow if last-good cache is < 7d old
+        # Offline grace - allow if last-good cache is < 7d old
         if (Test-Path $CacheFile) {
             $c = Get-Content $CacheFile -Raw | ConvertFrom-Json
             if ($c.valid -and ($now - [int]$c.ts) -lt 604800) {
@@ -88,7 +98,7 @@ function Check-License {
         exit 1
     }
     if (-not $resp.valid) {
-        Write-Host "[error] GrapeRoot Pro: license rejected — $($resp.reason)" -ForegroundColor Red
+        Write-Host "[error] GrapeRoot Pro: license rejected - $($resp.reason)" -ForegroundColor Red
         Write-Host "        Support: support@graperoot.dev"
         exit 1
     }

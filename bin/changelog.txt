@@ -1,3 +1,14 @@
+1.0.7  (2026-04-23)
+- Windows: install.ps1, launch_pro.ps1, dgc-pro.ps1 are now pure ASCII. Eliminates
+  the PowerShell 5.1 parse-crash caused by UTF-8 em-dashes / box-drawing chars that
+  the free repo fought for months (their commits 3.9.45, 3.9.51, 3.9.53).
+- Windows: `$ProgressPreference = "SilentlyContinue"` set in install.ps1 + launch_pro.ps1.
+  Fixes the PS 5.1 Invoke-WebRequest slowdown (~40x faster downloads).
+- Auto-update: launcher file refresh now falls back to GitHub raw when R2 is unavailable.
+  Previously, a 1.0.x→1.0.y auto-update would install the new engine tarball but
+  leave bin/version.txt, launch_pro.sh etc. at the old version.
+- Verified end-to-end auto-update on macOS (1.0.5 → 1.0.6 in this release).
+
 1.0.6  (2026-04-23)
 - Polish on the v1.0.5 non-interactive fix: TTY probe now uses `{ : </dev/tty; } 2>/dev/null`
   so the misleading "Device not configured" message never leaks to installer output

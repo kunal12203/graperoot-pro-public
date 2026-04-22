@@ -43,10 +43,17 @@ self_update() {
       if curl -fsSL --max-time 60 "$dl_url" -o "$tmp" 2>/dev/null; then
         tar -xzf "$tmp" -C "$INSTALL_DIR" --strip-components=1 2>/dev/null || true
         rm -f "$tmp"
-        # Also refresh launcher binaries
+        # Also refresh launcher binaries — R2 first, GitHub fallback (R2 may not be set up)
         for f in launch_pro.sh dgc-pro version.txt changelog.txt; do
-          curl -fsSL --max-time 15 "$R2/bin/$f" -o "$BIN_DIR/$f.new" 2>/dev/null \
-            && mv "$BIN_DIR/$f.new" "$BIN_DIR/$f"
+          if curl -fsSL --max-time 15 "$R2/bin/$f" -o "$BIN_DIR/$f.new" 2>/dev/null && [ -s "$BIN_DIR/$f.new" ]; then
+            : # fetched from R2
+          elif curl -fsSL --max-time 15 "$BASE_URL/bin/$f" -o "$BIN_DIR/$f.new" 2>/dev/null && [ -s "$BIN_DIR/$f.new" ]; then
+            : # fetched from GitHub fallback
+          else
+            rm -f "$BIN_DIR/$f.new"
+            continue
+          fi
+          mv "$BIN_DIR/$f.new" "$BIN_DIR/$f"
         done
         chmod +x "$BIN_DIR/launch_pro.sh" "$BIN_DIR/dgc-pro" 2>/dev/null || true
         # Show changelog

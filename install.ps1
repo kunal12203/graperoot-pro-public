@@ -1,12 +1,14 @@
-# GrapeRoot Pro — one-time setup (Windows)
+# GrapeRoot Pro - one-time setup (Windows)
 # Usage:
 #   $env:GRAPEROOT_LICENSE_KEY = "GRP-XXXX-XXXX-XXXX"
 #   irm https://graperoot.dev/pro/install.ps1 | iex
 
 try {
     $ErrorActionPreference = "Stop"
+    # Suppress Invoke-WebRequest progress bar - on PS 5.1 it makes IWR 40x slower
+    $ProgressPreference = "SilentlyContinue"
 
-    # TLS — PS 5.1 defaults to TLS 1.0 which many CDNs reject
+    # TLS - PS 5.1 defaults to TLS 1.0 which many CDNs reject
     try {
         [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 -bor [Net.SecurityProtocolType]::Tls13
     } catch {
@@ -21,9 +23,9 @@ try {
     $LicenseKey  = $env:GRAPEROOT_LICENSE_KEY
 
     Write-Host ""
-    Write-Host "╔══════════════════════════════════════════════════════════════╗" -ForegroundColor Cyan
-    Write-Host "║           GrapeRoot Pro — Installer  ·  v1.0                 ║" -ForegroundColor Cyan
-    Write-Host "╚══════════════════════════════════════════════════════════════╝" -ForegroundColor Cyan
+    Write-Host "+==============================================================+" -ForegroundColor Cyan
+    Write-Host "|           GrapeRoot Pro - Installer  |  v1.0                 |" -ForegroundColor Cyan
+    Write-Host "+==============================================================+" -ForegroundColor Cyan
     Write-Host ""
 
     if (-not $LicenseKey) {
@@ -37,9 +39,9 @@ try {
         exit 1
     }
 
-    # ───────────────────────────────────────────────────────────────────────
+    # -----------------------------------------------------------------------
     # Helpers
-    # ───────────────────────────────────────────────────────────────────────
+    # -----------------------------------------------------------------------
     function Invoke-WebRequestWithRetry {
         param([string]$Uri, [string]$OutFile, [int]$MaxRetries = 4, [int]$TimeoutSec = 60)
         for ($i = 1; $i -le $MaxRetries; $i++) {
@@ -47,7 +49,7 @@ try {
                 Invoke-WebRequest $Uri -OutFile $OutFile -UseBasicParsing -TimeoutSec $TimeoutSec
                 return
             } catch {
-                if ($i -ge $MaxRetries) { throw "Download failed after $MaxRetries tries: $Uri — $($_.Exception.Message)" }
+                if ($i -ge $MaxRetries) { throw "Download failed after $MaxRetries tries: $Uri - $($_.Exception.Message)" }
                 Start-Sleep -Seconds ([Math]::Min(2 * $i, 8))
             }
         }
@@ -58,9 +60,9 @@ try {
         return ($a -notmatch '^[Nn]')
     }
 
-    # ───────────────────────────────────────────────────────────────────────
-    # Prerequisites — Python 3.10+, Claude Code
-    # ───────────────────────────────────────────────────────────────────────
+    # -----------------------------------------------------------------------
+    # Prerequisites - Python 3.10+, Claude Code
+    # -----------------------------------------------------------------------
     $pyCandidates = @("python3.13","python3.12","python3.11","python3.10","python3","python")
     $pythonCmd = $null
     foreach ($c in $pyCandidates) {
@@ -114,13 +116,13 @@ try {
     }
 
     if (Test-Path $FREE_DIR) {
-        Write-Host "[check] GrapeRoot Free detected at $FREE_DIR — Pro will install alongside (free install untouched)"
+        Write-Host "[check] GrapeRoot Free detected at $FREE_DIR - Pro will install alongside (free install untouched)"
     }
 
-    # ───────────────────────────────────────────────────────────────────────
+    # -----------------------------------------------------------------------
     # License verify
-    # ───────────────────────────────────────────────────────────────────────
-    Write-Host "[verify] Validating license…"
+    # -----------------------------------------------------------------------
+    Write-Host "[verify] Validating license..."
     try {
         $verify = Invoke-RestMethod -Method POST -Uri "$API/v1/license/verify" `
             -ContentType "application/json" -TimeoutSec 15 `
@@ -134,28 +136,28 @@ try {
         Write-Host "        Support: support@graperoot.dev"
         exit 1
     }
-    Write-Host "[verify] Valid  ·  $($verify.customer)  ·  expires: $($verify.expires)"
+    Write-Host "[verify] Valid  |  $($verify.customer)  |  expires: $($verify.expires)"
 
-    # ───────────────────────────────────────────────────────────────────────
+    # -----------------------------------------------------------------------
     # Install
-    # ───────────────────────────────────────────────────────────────────────
+    # -----------------------------------------------------------------------
     New-Item -ItemType Directory -Path "$INSTALL_DIR\bin" -Force | Out-Null
 
-    Write-Host "[install] Downloading GrapeRoot Pro package…"
+    Write-Host "[install] Downloading GrapeRoot Pro package..."
     $tmpTgz = Join-Path $env:TEMP "graperoot-pro.tar.gz"
     Invoke-WebRequestWithRetry -Uri $verify.download_url -OutFile $tmpTgz -TimeoutSec 120
     & tar -xzf $tmpTgz -C $INSTALL_DIR --strip-components=1
     if ($LASTEXITCODE -ne 0) { throw "tar extraction failed (Windows 10 1803+ required, or install Git Bash)" }
     Remove-Item $tmpTgz -ErrorAction SilentlyContinue
 
-    Write-Host "[install] Downloading launcher…"
+    Write-Host "[install] Downloading launcher..."
     foreach ($f in @("launch_pro.ps1","dgc-pro.cmd","dgc-pro.ps1","version.txt","changelog.txt")) {
         $dest = Join-Path "$INSTALL_DIR\bin" $f
         try { Invoke-WebRequestWithRetry -Uri "$R2/bin/$f" -OutFile $dest }
         catch { Invoke-WebRequestWithRetry -Uri "$BASE_URL/bin/$f" -OutFile $dest }
     }
 
-    Write-Host "[install] Creating isolated Python venv…"
+    Write-Host "[install] Creating isolated Python venv..."
     & $pythonCmd -m venv "$INSTALL_DIR\venv" | Out-Null
     $venvPy = "$INSTALL_DIR\venv\Scripts\python.exe"
     & $venvPy -m pip install --quiet --upgrade pip
@@ -171,7 +173,7 @@ try {
     $acl.SetAccessRule($rule)
     Set-Acl -Path $licenseFile -AclObject $acl
 
-    # PATH — user scope
+    # PATH - user scope
     $userPath = [Environment]::GetEnvironmentVariable("PATH", "User")
     $binDir   = "$INSTALL_DIR\bin"
     if ($userPath -notlike "*$binDir*") {
@@ -179,11 +181,11 @@ try {
         Write-Host "[install] Added $binDir to user PATH"
     }
 
-    $ver = if (Test-Path "$INSTALL_DIR\bin\version.txt") { (Get-Content "$INSTALL_DIR\bin\version.txt" -Raw).Trim() } else { "1.0.6" }
+    $ver = if (Test-Path "$INSTALL_DIR\bin\version.txt") { (Get-Content "$INSTALL_DIR\bin\version.txt" -Raw).Trim() } else { "1.0.7" }
     Write-Host ""
-    Write-Host "╔══════════════════════════════════════════════════════════════╗" -ForegroundColor Green
-    Write-Host "║  Install complete.  GrapeRoot Pro v$ver" -ForegroundColor Green
-    Write-Host "╚══════════════════════════════════════════════════════════════╝" -ForegroundColor Green
+    Write-Host "+==============================================================+" -ForegroundColor Green
+    Write-Host "|  Install complete.  GrapeRoot Pro v$ver" -ForegroundColor Green
+    Write-Host "+==============================================================+" -ForegroundColor Green
     Write-Host ""
     Write-Host "  Open a new PowerShell window (PATH refresh), then:"
     Write-Host "    dgc-pro C:\path\to\your\project" -ForegroundColor Cyan
