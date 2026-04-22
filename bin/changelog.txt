@@ -1,3 +1,10 @@
+1.0.5  (2026-04-23)
+- Installer no longer hangs on non-interactive shells (CI, automation, SSH without
+  TTY, piped `curl | bash`). When no TTY is attached, optional prompts default to
+  YES so the install completes; set GRAPEROOT_SKIP_OPTIONAL=1 to opt out instead.
+  No security impact — all optional prompts are package installs the user can
+  always install manually later.
+
 1.0.4  (2026-04-23)
 - Security: MCP server now binds to 127.0.0.1 only (was 0.0.0.0). On public wifi /
   office LANs, other machines could previously call graph_read to exfiltrate source.

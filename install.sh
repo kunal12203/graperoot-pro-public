@@ -32,8 +32,22 @@ if [[ -z "$LICENSE_KEY" ]]; then
 fi
 
 confirm() {
-  printf "%s [Y/n] " "$1"
-  read -r answer </dev/tty
+  # Three modes:
+  #   1. Interactive TTY → prompt Y/n, read user answer
+  #   2. No TTY (CI, curl|bash piped, SSH -T) → default YES (user invoked the installer)
+  #   3. Opt-out via env: GRAPEROOT_SKIP_OPTIONAL=1 → default NO
+  local answer=""
+  if [ -r /dev/tty ] 2>/dev/null; then
+    printf "%s [Y/n] " "$1"
+    read -r answer </dev/tty || answer=""
+  else
+    if [ "${GRAPEROOT_SKIP_OPTIONAL:-0}" = "1" ]; then
+      echo "$1 [skipped — GRAPEROOT_SKIP_OPTIONAL=1]"
+      return 1
+    fi
+    echo "$1 [Y/n] (auto-Y, no tty)"
+    answer="Y"
+  fi
   case "$answer" in [Nn]*) return 1 ;; *) return 0 ;; esac
 }
 
@@ -192,7 +206,7 @@ if ! grep -q ".graperoot-pro/bin" "$SHELL_RC" 2>/dev/null; then
   echo "[install] Added $INSTALL_DIR/bin to PATH in $SHELL_RC"
 fi
 
-VER=$(cat "$INSTALL_DIR/bin/version.txt" 2>/dev/null || echo "1.0.4")
+VER=$(cat "$INSTALL_DIR/bin/version.txt" 2>/dev/null || echo "1.0.5")
 echo ""
 echo "╔══════════════════════════════════════════════════════════════╗"
 echo "║  Install complete.  GrapeRoot Pro v$VER                    ║"
