@@ -1,3 +1,8 @@
+1.0.6  (2026-04-23)
+- Polish on the v1.0.5 non-interactive fix: TTY probe now uses `{ : </dev/tty; } 2>/dev/null`
+  so the misleading "Device not configured" message never leaks to installer output
+  when running from automation / CI / piped shells.
+
 1.0.5  (2026-04-23)
 - Installer no longer hangs on non-interactive shells (CI, automation, SSH without
   TTY, piped `curl | bash`). When no TTY is attached, optional prompts default to

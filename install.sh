@@ -36,10 +36,13 @@ confirm() {
   #   1. Interactive TTY → prompt Y/n, read user answer
   #   2. No TTY (CI, curl|bash piped, SSH -T) → default YES (user invoked the installer)
   #   3. Opt-out via env: GRAPEROOT_SKIP_OPTIONAL=1 → default NO
+  #
+  # TTY probe: `{ : </dev/tty; } 2>/dev/null` opens /dev/tty for reading via no-op `:`,
+  # with stderr redirected so "Device not configured" errors never leak to output.
   local answer=""
-  if [ -r /dev/tty ] 2>/dev/null; then
+  if { : </dev/tty; } 2>/dev/null; then
     printf "%s [Y/n] " "$1"
-    read -r answer </dev/tty || answer=""
+    read -r answer </dev/tty 2>/dev/null || answer=""
   else
     if [ "${GRAPEROOT_SKIP_OPTIONAL:-0}" = "1" ]; then
       echo "$1 [skipped — GRAPEROOT_SKIP_OPTIONAL=1]"
@@ -206,7 +209,7 @@ if ! grep -q ".graperoot-pro/bin" "$SHELL_RC" 2>/dev/null; then
   echo "[install] Added $INSTALL_DIR/bin to PATH in $SHELL_RC"
 fi
 
-VER=$(cat "$INSTALL_DIR/bin/version.txt" 2>/dev/null || echo "1.0.5")
+VER=$(cat "$INSTALL_DIR/bin/version.txt" 2>/dev/null || echo "1.0.6")
 echo ""
 echo "╔══════════════════════════════════════════════════════════════╗"
 echo "║  Install complete.  GrapeRoot Pro v$VER                    ║"
