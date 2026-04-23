@@ -102,6 +102,38 @@ try {
         }
     }
 
+    $nodeOk = $false
+    if (Get-Command node -ErrorAction SilentlyContinue) {
+        $nodeVer = (& node -v) 2>$null
+        $nodeMajor = if ($nodeVer -match '^v(\d+)') { [int]$Matches[1] } else { 0 }
+        if ($nodeMajor -ge 18) {
+            Write-Host "[check] Node.js:      $nodeVer"
+            $nodeOk = $true
+        } else {
+            Write-Host "[warn] Node $nodeVer is older than v18; Claude Code may fail. Upgrade recommended." -ForegroundColor Yellow
+        }
+    }
+    if (-not $nodeOk) {
+        Write-Host "[check] Node.js:      NOT FOUND" -ForegroundColor Yellow
+        $installed = $false
+        if ((Get-Command winget -ErrorAction SilentlyContinue) -and (Confirm-Install "[check] Install Node.js (LTS) via winget?")) {
+            winget install -e --id OpenJS.NodeJS.LTS --accept-source-agreements --accept-package-agreements 2>&1 | Out-Null
+            $installed = $true
+        } elseif ((Get-Command scoop -ErrorAction SilentlyContinue) -and (Confirm-Install "[check] Install Node.js via scoop?")) {
+            scoop install nodejs-lts 2>&1 | Out-Null
+            $installed = $true
+        } elseif ((Get-Command choco -ErrorAction SilentlyContinue) -and (Confirm-Install "[check] Install Node.js via Chocolatey?")) {
+            choco install nodejs-lts -y 2>&1 | Out-Null
+            $installed = $true
+        } else {
+            Write-Host "[warn] Install Node.js 18+ from https://nodejs.org, then re-run for Claude Code install." -ForegroundColor Yellow
+        }
+        if ($installed) {
+            # Refresh PATH so npm becomes available in this session
+            $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+        }
+    }
+
     if (Get-Command claude -ErrorAction SilentlyContinue) {
         Write-Host "[check] Claude Code:  installed"
     } elseif (Get-Command claude.cmd -ErrorAction SilentlyContinue) {
@@ -111,7 +143,7 @@ try {
         if ((Get-Command npm -ErrorAction SilentlyContinue) -and (Confirm-Install "[check] Install Claude Code via npm?")) {
             npm install -g @anthropic-ai/claude-code
         } else {
-            Write-Host "[warn] Install later:  npm install -g @anthropic-ai/claude-code" -ForegroundColor Yellow
+            Write-Host "[warn] Install later:  npm install -g @anthropic-ai/claude-code   (needs Node 18+)" -ForegroundColor Yellow
         }
     }
 

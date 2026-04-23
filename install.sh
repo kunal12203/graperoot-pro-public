@@ -122,13 +122,45 @@ else
   echo "[check] ripgrep:      $(rg --version 2>/dev/null | head -1)"
 fi
 
+if ! command -v node >/dev/null 2>&1 || ! command -v npm >/dev/null 2>&1; then
+  echo "[check] Node.js:      NOT FOUND"
+  case "$OS_TYPE" in
+    Darwin*)
+      if command -v brew >/dev/null 2>&1 && confirm "[check] Install Node.js (LTS) via Homebrew?"; then
+        brew install node
+      else
+        echo "[warn] Install later:  brew install node   (Claude Code requires Node 18+)"
+      fi
+      ;;
+    Linux*)
+      if command -v apt-get >/dev/null 2>&1 && confirm "[check] Install Node.js via apt? (sudo)"; then
+        sudo apt-get install -y nodejs npm
+      elif command -v dnf >/dev/null 2>&1 && confirm "[check] Install Node.js via dnf? (sudo)"; then
+        sudo dnf install -y nodejs npm
+      elif command -v pacman >/dev/null 2>&1 && confirm "[check] Install Node.js via pacman? (sudo)"; then
+        sudo pacman -S --noconfirm nodejs npm
+      else
+        echo "[warn] Install Node.js 18+ from https://nodejs.org, then re-run for Claude Code install."
+      fi
+      ;;
+  esac
+fi
+if command -v node >/dev/null 2>&1; then
+  NODE_MAJOR=$(node -v 2>/dev/null | sed 's/^v//' | cut -d. -f1)
+  if [ -n "$NODE_MAJOR" ] && [ "$NODE_MAJOR" -lt 18 ] 2>/dev/null; then
+    echo "[warn] Node $(node -v) is older than v18; Claude Code may fail. Upgrade recommended."
+  else
+    echo "[check] Node.js:      $(node -v)"
+  fi
+fi
+
 if ! command -v claude >/dev/null 2>&1; then
   echo "[check] Claude Code:  NOT FOUND"
   if command -v npm >/dev/null 2>&1 && confirm "[check] Install Claude Code via npm?"; then
     npm install -g @anthropic-ai/claude-code 2>/dev/null || sudo npm install -g @anthropic-ai/claude-code 2>/dev/null || true
     command -v claude >/dev/null 2>&1 && echo "[check] Claude Code:  installed" || echo "[warn] Claude Code install failed; install manually later: npm i -g @anthropic-ai/claude-code"
   else
-    echo "[warn] Install later:  npm install -g @anthropic-ai/claude-code"
+    echo "[warn] Install later:  npm install -g @anthropic-ai/claude-code   (needs Node 18+)"
   fi
 else
   echo "[check] Claude Code:  $(claude --version 2>/dev/null | head -1 || echo 'installed')"
