@@ -55,6 +55,34 @@ try {
         }
     }
 
+    # Detect HTML error pages served with 200 status (R2 cert failures return
+    # an HTML page with the original status code - breaks launcher files silently).
+    function Test-ValidScript {
+        param([string]$Path)
+        if (-not (Test-Path $Path)) { return $false }
+        $size = (Get-Item $Path).Length
+        if ($size -lt 20) { return $false }
+        $head = Get-Content $Path -TotalCount 3 -ErrorAction SilentlyContinue
+        if ($null -eq $head) { return $false }
+        foreach ($line in $head) {
+            if ($line -match '<html|<!DOCTYPE|<HTML') { return $false }
+        }
+        return $true
+    }
+
+    # Validate a tarball has the gzip magic header (1f 8b) before handing to tar.
+    function Test-ValidTarball {
+        param([string]$Path)
+        if (-not (Test-Path $Path)) { return $false }
+        if ((Get-Item $Path).Length -lt 100) { return $false }
+        try {
+            $fs = [System.IO.File]::OpenRead($Path)
+            $b0 = $fs.ReadByte(); $b1 = $fs.ReadByte()
+            $fs.Close()
+            return ($b0 -eq 0x1f -and $b1 -eq 0x8b)
+        } catch { return $false }
+    }
+
     function Confirm-Install([string]$Prompt) {
         $a = Read-Host "$Prompt [Y/n]"
         return ($a -notmatch '^[Nn]')
@@ -91,14 +119,18 @@ try {
         Write-Host "[check] ripgrep:      $(rg --version | Select-Object -First 1)"
     } else {
         Write-Host "[check] ripgrep:      NOT FOUND" -ForegroundColor Yellow
-        if ((Get-Command winget -ErrorAction SilentlyContinue) -and (Confirm-Install "[check] Install ripgrep via winget?")) {
-            winget install -e --id BurntSushi.ripgrep.MSVC --accept-source-agreements --accept-package-agreements 2>&1 | Out-Null
-        } elseif ((Get-Command scoop -ErrorAction SilentlyContinue) -and (Confirm-Install "[check] Install ripgrep via scoop?")) {
-            scoop install ripgrep 2>&1 | Out-Null
-        } elseif ((Get-Command choco -ErrorAction SilentlyContinue) -and (Confirm-Install "[check] Install ripgrep via Chocolatey?")) {
-            choco install ripgrep -y 2>&1 | Out-Null
-        } else {
-            Write-Host "[warn] Install later via: winget install BurntSushi.ripgrep.MSVC   (needed for fallback_rg / graph_grep_all)" -ForegroundColor Yellow
+        try {
+            if ((Get-Command winget -ErrorAction SilentlyContinue) -and (Confirm-Install "[check] Install ripgrep via winget?")) {
+                & winget install -e --id BurntSushi.ripgrep.MSVC --silent --accept-package-agreements --accept-source-agreements 2>&1 | Out-Null
+            } elseif ((Get-Command scoop -ErrorAction SilentlyContinue) -and (Confirm-Install "[check] Install ripgrep via scoop?")) {
+                & scoop install ripgrep 2>&1 | Out-Null
+            } elseif ((Get-Command choco -ErrorAction SilentlyContinue) -and (Confirm-Install "[check] Install ripgrep via Chocolatey?")) {
+                & choco install ripgrep -y 2>&1 | Out-Null
+            } else {
+                Write-Host "[warn] Install later via: winget install BurntSushi.ripgrep.MSVC   (needed for fallback_rg / graph_grep_all)" -ForegroundColor Yellow
+            }
+        } catch {
+            Write-Host "[warn] ripgrep install failed: $($_.Exception.Message). Install manually: winget install BurntSushi.ripgrep.MSVC" -ForegroundColor Yellow
         }
     }
 
@@ -116,17 +148,21 @@ try {
     if (-not $nodeOk) {
         Write-Host "[check] Node.js:      NOT FOUND" -ForegroundColor Yellow
         $installed = $false
-        if ((Get-Command winget -ErrorAction SilentlyContinue) -and (Confirm-Install "[check] Install Node.js (LTS) via winget?")) {
-            winget install -e --id OpenJS.NodeJS.LTS --accept-source-agreements --accept-package-agreements 2>&1 | Out-Null
-            $installed = $true
-        } elseif ((Get-Command scoop -ErrorAction SilentlyContinue) -and (Confirm-Install "[check] Install Node.js via scoop?")) {
-            scoop install nodejs-lts 2>&1 | Out-Null
-            $installed = $true
-        } elseif ((Get-Command choco -ErrorAction SilentlyContinue) -and (Confirm-Install "[check] Install Node.js via Chocolatey?")) {
-            choco install nodejs-lts -y 2>&1 | Out-Null
-            $installed = $true
-        } else {
-            Write-Host "[warn] Install Node.js 18+ from https://nodejs.org, then re-run for Claude Code install." -ForegroundColor Yellow
+        try {
+            if ((Get-Command winget -ErrorAction SilentlyContinue) -and (Confirm-Install "[check] Install Node.js (LTS) via winget?")) {
+                & winget install -e --id OpenJS.NodeJS.LTS --silent --accept-package-agreements --accept-source-agreements 2>&1 | Out-Null
+                $installed = $true
+            } elseif ((Get-Command scoop -ErrorAction SilentlyContinue) -and (Confirm-Install "[check] Install Node.js via scoop?")) {
+                & scoop install nodejs-lts 2>&1 | Out-Null
+                $installed = $true
+            } elseif ((Get-Command choco -ErrorAction SilentlyContinue) -and (Confirm-Install "[check] Install Node.js via Chocolatey?")) {
+                & choco install nodejs-lts -y 2>&1 | Out-Null
+                $installed = $true
+            } else {
+                Write-Host "[warn] Install Node.js 18+ from https://nodejs.org, then re-run for Claude Code install." -ForegroundColor Yellow
+            }
+        } catch {
+            Write-Host "[warn] Node.js install failed: $($_.Exception.Message). Install manually: https://nodejs.org" -ForegroundColor Yellow
         }
         if ($installed) {
             # Refresh PATH so npm becomes available in this session
@@ -191,6 +227,9 @@ try {
     Write-Host "[install] Downloading GrapeRoot Pro package..."
     $tmpTgz = Join-Path $env:TEMP "graperoot-pro.tar.gz"
     Invoke-WebRequestWithRetry -Uri $verify.download_url -OutFile $tmpTgz -TimeoutSec 120
+    if (-not (Test-ValidTarball $tmpTgz)) {
+        throw "Downloaded package is not a valid gzip archive (R2 may have returned an HTML error page). Try again in a few minutes."
+    }
     & tar -xzf $tmpTgz -C $INSTALL_DIR --strip-components=1
     if ($LASTEXITCODE -ne 0) { throw "tar extraction failed (Windows 10 1803+ required, or install Git Bash)" }
     Remove-Item $tmpTgz -ErrorAction SilentlyContinue
@@ -200,6 +239,10 @@ try {
         $dest = Join-Path "$INSTALL_DIR\bin" $f
         try { Invoke-WebRequestWithRetry -Uri "$R2/bin/$f" -OutFile $dest }
         catch { Invoke-WebRequestWithRetry -Uri "$BASE_URL/bin/$f" -OutFile $dest }
+        # R2 CDN returns 200 + HTML on cert issues - validate and fall back to GitHub.
+        if (-not (Test-ValidScript $dest)) {
+            Invoke-WebRequestWithRetry -Uri "$BASE_URL/bin/$f" -OutFile $dest
+        }
     }
 
     Write-Host "[install] Creating isolated Python venv..."
