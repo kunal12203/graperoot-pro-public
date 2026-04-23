@@ -4,137 +4,52 @@ on:
   workflow_dispatch:
     inputs:
       license_key:
-        description: "License key to test with (GRP-XXXX-XXXX-XXXX)"
+        description: "License key (GRP-XXXX-XXXX-XXXX)"
         required: true
         type: string
   push:
     paths:
-      - 'install.ps1'
-      - 'bin/launch_pro.ps1'
-      - 'bin/dgc-pro.ps1'
-      - 'bin/dgc-pro.cmd'
+      - install.ps1
+      - bin/launch_pro.ps1
+      - bin/dgc-pro.ps1
+      - bin/dgc-pro.cmd
+      - .github/workflows/test-windows.yml
+      - .github/workflows/scripts/verify-install.ps1
 
 jobs:
-  smoke-ps51:
-    name: Install + verify on Windows (PowerShell 5.1)
+  ps51:
+    name: PowerShell 5.1
     runs-on: windows-latest
     steps:
-      - name: Show environment
+      - uses: actions/checkout@v4
+      - name: Show env
         shell: powershell
         run: |
-          Write-Host "PSVersion:    $($PSVersionTable.PSVersion)"
-          Write-Host "PSEdition:    $($PSVersionTable.PSEdition)"
-          Write-Host "Host:         $env:COMPUTERNAME"
-          Write-Host "OS:           $((Get-CimInstance Win32_OperatingSystem).Caption)"
-
-      - name: Pre-flight (Python on runner; installer auto-installs claude + rg)
-        shell: powershell
-        run: |
-          $ProgressPreference = "SilentlyContinue"
+          $PSVersionTable
           python --version
-
-      - name: Debug — can the runner reach api.graperoot.dev?
-        shell: powershell
-        run: |
-          $ProgressPreference = "SilentlyContinue"
-          Write-Host "DNS:"
-          Resolve-DnsName api.graperoot.dev -Type A 2>&1 | Select-Object -First 3
-          Write-Host "TLS handshake + GET /health:"
-          try {
-            $r = Invoke-RestMethod -Uri https://api.graperoot.dev/health -TimeoutSec 10
-            Write-Host ("  ok: " + ($r | ConvertTo-Json -Compress))
-          } catch {
-            Write-Host ("  FAIL: " + $_.Exception.Message)
-            if ($_.Exception.Response) {
-              Write-Host ("  status: " + $_.Exception.Response.StatusCode)
-            }
-          }
-          Write-Host "POST /v1/license/verify (with the test key):"
-          try {
-            $body = @{ license_key = "${{ inputs.license_key || 'GRP-BS8Q-PLNP-5WQL' }}"; host = "ci-test"; os = "windows" } | ConvertTo-Json
-            $r = Invoke-RestMethod -Method POST -Uri https://api.graperoot.dev/v1/license/verify -ContentType "application/json" -Body $body -TimeoutSec 15
-            Write-Host ("  ok: customer=" + $r.customer)
-          } catch {
-            Write-Host ("  FAIL: " + $_.Exception.Message)
-          }
-
-      - name: Run installer (irm | iex via PS 5.1)
+      - name: Install
         shell: powershell
         env:
-          GRAPEROOT_LICENSE_KEY: ${{ inputs.license_key || 'GRP-BS8Q-PLNP-5WQL' }}
+          GRAPEROOT_LICENSE_KEY: ${{ inputs.license_key }}
         run: |
           $ProgressPreference = "SilentlyContinue"
           irm https://graperoot.dev/pro/install.ps1 | iex
-
-      - name: Verify install (PS 5.1)
+      - name: Verify
         shell: powershell
-        run: |
-          # Avoid YAML/PS quoting hell — write the verify logic to a temp file and run it
-          $script = @'
-          $proHome = Join-Path $env:USERPROFILE ".graperoot-pro"
-          $bin     = Join-Path $proHome "bin"
-          $expected = @(
-              $proHome,
-              (Join-Path $proHome "license.key"),
-              (Join-Path $proHome "mcp_graph_server_v7.4.py"),
-              (Join-Path $proHome "graph_builder.py"),
-              (Join-Path $proHome "launch.py"),
-              (Join-Path $proHome "venv\Scripts\python.exe"),
-              (Join-Path $bin "dgc-pro.cmd"),
-              (Join-Path $bin "launch_pro.ps1"),
-              (Join-Path $bin "version.txt")
-          )
-          foreach ($p in $expected) {
-              if (-not (Test-Path $p)) { Write-Host "FAIL: missing $p"; exit 1 }
-          }
-          Write-Host "[ok] all expected files present"
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File .github/workflows/scripts/verify-install.ps1
 
-          $serverContent = Get-Content (Join-Path $proHome "mcp_graph_server_v7.4.py") -Raw
-          if ($serverContent -match [regex]::Escape("0.0.0.0")) {
-              Write-Host "FAIL: server binds to 0.0.0.0 - security regression"; exit 1
-          }
-          Write-Host "[ok] server binds 127.0.0.1 only"
-
-          $version = (Get-Content (Join-Path $bin "version.txt") -Raw).Trim()
-          Write-Host "[ok] installed version: $version"
-
-          $py = Join-Path $proHome "venv\Scripts\python.exe"
-          $imports = & $py -c "import mcp, uvicorn, starlette, graperoot; print('imports ok')" 2>&1
-          Write-Host "[ok] $imports"
-'@
-          $tmp = Join-Path $env:TEMP "verify.ps1"
-          $script | Set-Content -Path $tmp -Encoding ASCII
-          powershell -NoProfile -ExecutionPolicy Bypass -File $tmp
-
-      - name: Test the launcher actually starts an MCP server
-        shell: powershell
-        run: |
-          $ProgressPreference = "SilentlyContinue"
-          # Make a minimal test project
-          New-Item -ItemType Directory -Path C:\test-project -Force | Out-Null
-          "# test" | Set-Content C:\test-project\README.md
-          "def hi(): pass" | Set-Content C:\test-project\app.py
-
-          # Run the Python core directly (skips claude launch)
-          $proHome = "$env:USERPROFILE\.graperoot-pro"
-          & "$proHome\venv\Scripts\python.exe" "$proHome\launch.py" --version
-
-  smoke-pwsh7:
-    name: Install + verify on Windows (PowerShell 7)
+  pwsh7:
+    name: PowerShell 7
     runs-on: windows-latest
     steps:
-      - name: Run installer via pwsh 7
+      - uses: actions/checkout@v4
+      - name: Install
         shell: pwsh
         env:
-          GRAPEROOT_LICENSE_KEY: ${{ inputs.license_key || 'GRP-BS8Q-PLNP-5WQL' }}
+          GRAPEROOT_LICENSE_KEY: ${{ inputs.license_key }}
         run: |
           $ProgressPreference = "SilentlyContinue"
           irm https://graperoot.dev/pro/install.ps1 | iex
-
-      - name: Verify on pwsh 7
+      - name: Verify
         shell: pwsh
-        run: |
-          $proHome = "$env:USERPROFILE\.graperoot-pro"
-          if (-not (Test-Path "$proHome\bin\dgc-pro.cmd")) { Write-Host "FAIL"; exit 1 }
-          $ver = (Get-Content "$proHome\bin\version.txt" -Raw).Trim()
-          Write-Host "Installed version: $ver"
+        run: pwsh -NoProfile -ExecutionPolicy Bypass -File .github/workflows/scripts/verify-install.ps1
