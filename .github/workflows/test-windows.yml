@@ -53,3 +53,33 @@ jobs:
       - name: Verify
         shell: pwsh
         run: pwsh -NoProfile -ExecutionPolicy Bypass -File .github/workflows/scripts/verify-install.ps1
+
+  ubuntu:
+    name: Ubuntu (apt)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install
+        env:
+          GRAPEROOT_LICENSE_KEY: ${{ inputs.license_key }}
+        run: |
+          # ripgrep is preinstalled on ubuntu-latest, python3 too
+          rg --version | head -1 || sudo apt-get install -y ripgrep
+          curl -fsSL https://graperoot.dev/pro/install.sh | bash -s -- "$GRAPEROOT_LICENSE_KEY"
+      - name: Verify
+        run: bash .github/workflows/scripts/verify-install.sh
+
+  fedora:
+    name: Fedora (dnf in container)
+    runs-on: ubuntu-latest
+    container: fedora:40
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install
+        env:
+          GRAPEROOT_LICENSE_KEY: ${{ inputs.license_key }}
+        run: |
+          dnf install -y python3.11 python3.11-devel ripgrep curl tar gzip findutils >/dev/null
+          curl -fsSL https://graperoot.dev/pro/install.sh | bash -s -- "$GRAPEROOT_LICENSE_KEY"
+      - name: Verify
+        run: bash .github/workflows/scripts/verify-install.sh
