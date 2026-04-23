@@ -72,7 +72,7 @@ if [[ -z "$PYTHON" ]]; then
   case "$OS_TYPE" in
     Darwin*)
       if command -v brew >/dev/null 2>&1 && confirm "[check] Install Python 3.11 via Homebrew?"; then
-        brew install python@3.11 && PYTHON="python3.11"
+        brew install python@3.11 </dev/null && PYTHON="python3.11"
       else
         echo "  Install manually:  brew install python@3.11   (or download from https://python.org)"
         exit 1
@@ -80,9 +80,9 @@ if [[ -z "$PYTHON" ]]; then
       ;;
     Linux*)
       if command -v apt-get >/dev/null 2>&1 && confirm "[check] Install Python via apt? (sudo)"; then
-        sudo apt-get update && sudo apt-get install -y python3.11 python3.11-venv && PYTHON="python3.11"
+        sudo apt-get update </dev/null && sudo apt-get install -y python3.11 python3.11-venv </dev/null && PYTHON="python3.11"
       elif command -v dnf >/dev/null 2>&1 && confirm "[check] Install Python via dnf? (sudo)"; then
-        sudo dnf install -y python3.11 && PYTHON="python3.11"
+        sudo dnf install -y python3.11 </dev/null && PYTHON="python3.11"
       else
         echo "  Install Python 3.10+ manually, then re-run the installer."
         exit 1
@@ -101,18 +101,18 @@ if ! command -v rg >/dev/null 2>&1; then
   case "$OS_TYPE" in
     Darwin*)
       if command -v brew >/dev/null 2>&1 && confirm "[check] Install ripgrep via Homebrew?"; then
-        brew install ripgrep
+        brew install ripgrep </dev/null || echo "[warn] brew install ripgrep failed; install manually later."
       else
         echo "[warn] Install later:  brew install ripgrep   (needed for fallback_rg / graph_grep_all)"
       fi
       ;;
     Linux*)
       if command -v apt-get >/dev/null 2>&1 && confirm "[check] Install ripgrep via apt? (sudo)"; then
-        sudo apt-get install -y ripgrep
+        sudo apt-get install -y ripgrep </dev/null || echo "[warn] apt install ripgrep failed; install manually later."
       elif command -v dnf >/dev/null 2>&1 && confirm "[check] Install ripgrep via dnf? (sudo)"; then
-        sudo dnf install -y ripgrep
+        sudo dnf install -y ripgrep </dev/null || echo "[warn] dnf install ripgrep failed; install manually later."
       elif command -v pacman >/dev/null 2>&1 && confirm "[check] Install ripgrep via pacman? (sudo)"; then
-        sudo pacman -S --noconfirm ripgrep
+        sudo pacman -S --noconfirm ripgrep </dev/null || echo "[warn] pacman install ripgrep failed; install manually later."
       else
         echo "[warn] Install ripgrep from your package manager (needed for fallback_rg / graph_grep_all)"
       fi
@@ -127,18 +127,18 @@ if ! command -v node >/dev/null 2>&1 || ! command -v npm >/dev/null 2>&1; then
   case "$OS_TYPE" in
     Darwin*)
       if command -v brew >/dev/null 2>&1 && confirm "[check] Install Node.js (LTS) via Homebrew?"; then
-        brew install node
+        brew install node </dev/null || echo "[warn] brew install node failed; install manually later."
       else
         echo "[warn] Install later:  brew install node   (Claude Code requires Node 18+)"
       fi
       ;;
     Linux*)
       if command -v apt-get >/dev/null 2>&1 && confirm "[check] Install Node.js via apt? (sudo)"; then
-        sudo apt-get install -y nodejs npm
+        sudo apt-get install -y nodejs npm </dev/null || echo "[warn] apt install nodejs failed; install manually later."
       elif command -v dnf >/dev/null 2>&1 && confirm "[check] Install Node.js via dnf? (sudo)"; then
-        sudo dnf install -y nodejs npm
+        sudo dnf install -y nodejs npm </dev/null || echo "[warn] dnf install nodejs failed; install manually later."
       elif command -v pacman >/dev/null 2>&1 && confirm "[check] Install Node.js via pacman? (sudo)"; then
-        sudo pacman -S --noconfirm nodejs npm
+        sudo pacman -S --noconfirm nodejs npm </dev/null || echo "[warn] pacman install nodejs failed; install manually later."
       else
         echo "[warn] Install Node.js 18+ from https://nodejs.org, then re-run for Claude Code install."
       fi
@@ -157,7 +157,7 @@ fi
 if ! command -v claude >/dev/null 2>&1; then
   echo "[check] Claude Code:  NOT FOUND"
   if command -v npm >/dev/null 2>&1 && confirm "[check] Install Claude Code via npm?"; then
-    npm install -g @anthropic-ai/claude-code 2>/dev/null || sudo npm install -g @anthropic-ai/claude-code 2>/dev/null || true
+    npm install -g @anthropic-ai/claude-code </dev/null 2>/dev/null || sudo npm install -g @anthropic-ai/claude-code </dev/null 2>/dev/null || true
     command -v claude >/dev/null 2>&1 && echo "[check] Claude Code:  installed" || echo "[warn] Claude Code install failed; install manually later: npm i -g @anthropic-ai/claude-code"
   else
     echo "[warn] Install later:  npm install -g @anthropic-ai/claude-code   (needs Node 18+)"
@@ -219,9 +219,9 @@ chmod +x "$INSTALL_DIR/bin/launch_pro.sh" "$INSTALL_DIR/bin/dgc-pro"
 
 # Python venv + dependencies
 echo "[install] Creating isolated Python venv…"
-"$PYTHON" -m venv "$VENV"
-"$VENV/bin/pip" install --upgrade pip --quiet
-"$VENV/bin/pip" install --quiet -r "$INSTALL_DIR/requirements.txt"
+"$PYTHON" -m venv "$VENV" </dev/null
+"$VENV/bin/pip" install --upgrade pip --quiet </dev/null
+"$VENV/bin/pip" install --quiet -r "$INSTALL_DIR/requirements.txt" </dev/null
 
 # Persist license (owner-only)
 echo -n "$LICENSE_KEY" > "$INSTALL_DIR/license.key"
