@@ -7,6 +7,39 @@ Start here before emailing support.
 
 ## Install-time
 
+### Installer exits silently after installing ripgrep / Node / Claude Code
+
+**Fixed 2026-04-23.** In `curl | bash` mode, child processes (brew/apt/npm) were inheriting stdin from the curl pipe and consuming the remaining bytes of the installer script as their own input. After the child finished, bash had no more commands to run — the installer appeared to exit mid-setup. Every external install command now redirects stdin to `/dev/null`.
+
+**Recovery:** the installer is idempotent. Just re-run it:
+
+```bash
+curl -fsSL https://graperoot.dev/pro/install.sh | bash -s -- GRP-XXXX-XXXX-XXXX
+```
+
+It skips anything already present and only installs what's missing.
+
+### Installer can't find Node.js / Claude Code on a fresh machine
+
+**Fixed 2026-04-23 (v1.0.8+).** The installer now detects missing Node.js and offers to install it via:
+
+- **macOS:** `brew install node`
+- **Ubuntu/Debian:** `sudo apt-get install nodejs npm`
+- **Fedora:** `sudo dnf install nodejs npm`
+- **Arch:** `sudo pacman -S nodejs npm`
+- **Windows:** `winget install OpenJS.NodeJS.LTS` (or `scoop` / `choco`)
+
+Node 18+ is required by Claude Code. The installer warns if an older Node is present.
+
+### Windows install.ps1 crash on PowerShell 5.1 (MissingEndCurlyBrace)
+
+**Fixed 2026-04-23.** PS5.1's parser crashes on certain non-ASCII bytes (0x94 in particular — from em-dashes and box-drawing chars). The installer is now pure ASCII. If you're on an older cached copy and see this error, force a refresh:
+
+```powershell
+$ProgressPreference = "SilentlyContinue"
+irm "https://graperoot.dev/pro/install.ps1?bust=$(Get-Random)" | iex
+```
+
 ### "License server unreachable"
 
 Your network is blocking `api.graperoot.dev`. Common causes:
