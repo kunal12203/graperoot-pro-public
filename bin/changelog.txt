@@ -1,3 +1,7 @@
+1.0.8  (2026-04-23)
+- Better PS install errors: shows the actual exception + URL + corp-network hint
+  instead of opaque 'License server unreachable'.
+
 1.0.7  (2026-04-23)
 - Windows: install.ps1, launch_pro.ps1, dgc-pro.ps1 are now pure ASCII. Eliminates
   the PowerShell 5.1 parse-crash caused by UTF-8 em-dashes / box-drawing chars that

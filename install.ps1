@@ -128,7 +128,20 @@ try {
             -ContentType "application/json" -TimeoutSec 15 `
             -Body (@{ license_key = $LicenseKey; host = $env:COMPUTERNAME; os = "windows" } | ConvertTo-Json)
     } catch {
-        Write-Host "[error] License server unreachable. Check internet. Support: support@graperoot.dev" -ForegroundColor Red
+        $errMsg = $_.Exception.Message
+        $errBody = ""
+        if ($_.Exception.Response) {
+            try {
+                $reader = New-Object IO.StreamReader($_.Exception.Response.GetResponseStream())
+                $errBody = $reader.ReadToEnd()
+                $reader.Close()
+            } catch {}
+        }
+        Write-Host "[error] License server unreachable: $errMsg" -ForegroundColor Red
+        if ($errBody) { Write-Host "        Server response: $errBody" -ForegroundColor Red }
+        Write-Host "        URL tried: $API/v1/license/verify" -ForegroundColor Yellow
+        Write-Host "        If on a corporate network, ask IT to whitelist *.graperoot.dev" -ForegroundColor Yellow
+        Write-Host "        Support: support@graperoot.dev"
         exit 1
     }
     if (-not $verify.valid) {
@@ -181,7 +194,7 @@ try {
         Write-Host "[install] Added $binDir to user PATH"
     }
 
-    $ver = if (Test-Path "$INSTALL_DIR\bin\version.txt") { (Get-Content "$INSTALL_DIR\bin\version.txt" -Raw).Trim() } else { "1.0.7" }
+    $ver = if (Test-Path "$INSTALL_DIR\bin\version.txt") { (Get-Content "$INSTALL_DIR\bin\version.txt" -Raw).Trim() } else { "1.0.8" }
     Write-Host ""
     Write-Host "+==============================================================+" -ForegroundColor Green
     Write-Host "|  Install complete.  GrapeRoot Pro v$ver" -ForegroundColor Green

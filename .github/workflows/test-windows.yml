@@ -27,14 +27,36 @@ jobs:
           Write-Host "Host:         $env:COMPUTERNAME"
           Write-Host "OS:           $((Get-CimInstance Win32_OperatingSystem).Caption)"
 
-      - name: Pre-flight (Python, claude already on runner)
+      - name: Pre-flight (Python on runner; installer auto-installs claude + rg)
         shell: powershell
         run: |
           $ProgressPreference = "SilentlyContinue"
           python --version
-          npm install -g @anthropic-ai/claude-code 2>&1 | Select-Object -Last 5
-          # ripgrep is pre-installed on windows-latest
-          rg --version | Select-Object -First 1
+
+      - name: Debug — can the runner reach api.graperoot.dev?
+        shell: powershell
+        run: |
+          $ProgressPreference = "SilentlyContinue"
+          Write-Host "DNS:"
+          Resolve-DnsName api.graperoot.dev -Type A 2>&1 | Select-Object -First 3
+          Write-Host "TLS handshake + GET /health:"
+          try {
+            $r = Invoke-RestMethod -Uri https://api.graperoot.dev/health -TimeoutSec 10
+            Write-Host ("  ok: " + ($r | ConvertTo-Json -Compress))
+          } catch {
+            Write-Host ("  FAIL: " + $_.Exception.Message)
+            if ($_.Exception.Response) {
+              Write-Host ("  status: " + $_.Exception.Response.StatusCode)
+            }
+          }
+          Write-Host "POST /v1/license/verify (with the test key):"
+          try {
+            $body = @{ license_key = "${{ inputs.license_key || 'GRP-BS8Q-PLNP-5WQL' }}"; host = "ci-test"; os = "windows" } | ConvertTo-Json
+            $r = Invoke-RestMethod -Method POST -Uri https://api.graperoot.dev/v1/license/verify -ContentType "application/json" -Body $body -TimeoutSec 15
+            Write-Host ("  ok: customer=" + $r.customer)
+          } catch {
+            Write-Host ("  FAIL: " + $_.Exception.Message)
+          }
 
       - name: Run installer (irm | iex via PS 5.1)
         shell: powershell
