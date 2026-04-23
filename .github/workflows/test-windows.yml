@@ -1,0 +1,113 @@
+name: Windows install smoke test
+
+on:
+  workflow_dispatch:
+    inputs:
+      license_key:
+        description: "License key to test with (GRP-XXXX-XXXX-XXXX)"
+        required: true
+        type: string
+  push:
+    paths:
+      - 'install.ps1'
+      - 'bin/launch_pro.ps1'
+      - 'bin/dgc-pro.ps1'
+      - 'bin/dgc-pro.cmd'
+
+jobs:
+  smoke-ps51:
+    name: Install + verify on Windows (PowerShell 5.1)
+    runs-on: windows-latest
+    steps:
+      - name: Show environment
+        shell: powershell
+        run: |
+          Write-Host "PSVersion:    $($PSVersionTable.PSVersion)"
+          Write-Host "PSEdition:    $($PSVersionTable.PSEdition)"
+          Write-Host "Host:         $env:COMPUTERNAME"
+          Write-Host "OS:           $((Get-CimInstance Win32_OperatingSystem).Caption)"
+
+      - name: Pre-flight (Python, claude already on runner)
+        shell: powershell
+        run: |
+          $ProgressPreference = "SilentlyContinue"
+          python --version
+          npm install -g @anthropic-ai/claude-code 2>&1 | Select-Object -Last 5
+          # ripgrep is pre-installed on windows-latest
+          rg --version | Select-Object -First 1
+
+      - name: Run installer (irm | iex via PS 5.1)
+        shell: powershell
+        env:
+          GRAPEROOT_LICENSE_KEY: ${{ inputs.license_key || 'GRP-BS8Q-PLNP-5WQL' }}
+        run: |
+          $ProgressPreference = "SilentlyContinue"
+          irm https://graperoot.dev/pro/install.ps1 | iex
+
+      - name: Verify install
+        shell: powershell
+        run: |
+          $proHome = "$env:USERPROFILE\.graperoot-pro"
+          if (-not (Test-Path $proHome)) { Write-Host "FAIL: install dir missing"; exit 1 }
+          if (-not (Test-Path "$proHome\license.key"))                { Write-Host "FAIL: license.key missing"; exit 1 }
+          if (-not (Test-Path "$proHome\mcp_graph_server_v7.4.py"))   { Write-Host "FAIL: server missing"; exit 1 }
+          if (-not (Test-Path "$proHome\graph_builder.py"))           { Write-Host "FAIL: graph_builder missing"; exit 1 }
+          if (-not (Test-Path "$proHome\launch.py"))                  { Write-Host "FAIL: launch.py missing"; exit 1 }
+          if (-not (Test-Path "$proHome\venv\Scripts\python.exe"))    { Write-Host "FAIL: venv python missing"; exit 1 }
+          if (-not (Test-Path "$proHome\bin\dgc-pro.cmd"))            { Write-Host "FAIL: dgc-pro.cmd missing"; exit 1 }
+          if (-not (Test-Path "$proHome\bin\launch_pro.ps1"))         { Write-Host "FAIL: launch_pro.ps1 missing"; exit 1 }
+          if (-not (Test-Path "$proHome\bin\version.txt"))            { Write-Host "FAIL: version.txt missing"; exit 1 }
+          Write-Host "[ok] all expected files present"
+
+          # Server bind check (security regression guard)
+          $serverContent = Get-Content "$proHome\mcp_graph_server_v7.4.py" -Raw
+          if ($serverContent -match '"0\.0\.0\.0"') {
+            Write-Host "FAIL: server binds to 0.0.0.0 — security regression"
+            exit 1
+          }
+          Write-Host "[ok] server binds 127.0.0.1 only"
+
+          # Run --version through the actual launcher
+          $env:PATH = "$proHome\bin;$env:PATH"
+          $ver = & "$proHome\bin\dgc-pro.cmd" --version 2>&1
+          Write-Host "Reported version: $ver"
+          if ($ver -notmatch 'dgc-pro v\d+\.\d+\.\d+') {
+            Write-Host "FAIL: --version output unexpected"
+            exit 1
+          }
+
+          # Python deps importable?
+          & "$proHome\venv\Scripts\python.exe" -c "import mcp, uvicorn, starlette; from graperoot.dg import retrieve; print('[ok] imports')"
+
+      - name: Test the launcher actually starts an MCP server
+        shell: powershell
+        run: |
+          $ProgressPreference = "SilentlyContinue"
+          # Make a minimal test project
+          New-Item -ItemType Directory -Path C:\test-project -Force | Out-Null
+          "# test" | Set-Content C:\test-project\README.md
+          "def hi(): pass" | Set-Content C:\test-project\app.py
+
+          # Run the Python core directly (skips claude launch)
+          $proHome = "$env:USERPROFILE\.graperoot-pro"
+          & "$proHome\venv\Scripts\python.exe" "$proHome\launch.py" --version
+
+  smoke-pwsh7:
+    name: Install + verify on Windows (PowerShell 7)
+    runs-on: windows-latest
+    steps:
+      - name: Run installer via pwsh 7
+        shell: pwsh
+        env:
+          GRAPEROOT_LICENSE_KEY: ${{ inputs.license_key || 'GRP-BS8Q-PLNP-5WQL' }}
+        run: |
+          $ProgressPreference = "SilentlyContinue"
+          irm https://graperoot.dev/pro/install.ps1 | iex
+
+      - name: Verify on pwsh 7
+        shell: pwsh
+        run: |
+          $proHome = "$env:USERPROFILE\.graperoot-pro"
+          if (-not (Test-Path "$proHome\bin\dgc-pro.cmd")) { Write-Host "FAIL"; exit 1 }
+          $ver = (Get-Content "$proHome\bin\version.txt" -Raw).Trim()
+          Write-Host "Installed version: $ver"
