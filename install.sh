@@ -174,26 +174,98 @@ if [[ -d "$FREE_DIR" ]]; then
 fi
 
 # ══════════════════════════════════════════════════════════════════════════════
-# LICENSE VERIFY — fail fast if key is bad, before downloading anything
+# LICENSE VERIFY — precise diagnostics on failure (network vs server vs key)
 # ══════════════════════════════════════════════════════════════════════════════
-echo "[verify] Validating license…"
-VERIFY_JSON=$(
-  curl -fsSL -X POST "$API/v1/license/verify" \
-    -H "Content-Type: application/json" \
-    -d "{\"license_key\":\"$LICENSE_KEY\",\"host\":\"$(hostname 2>/dev/null || echo unknown)\",\"os\":\"$OS_TYPE\"}" \
-    --max-time 15 2>/dev/null
-) || { echo "[error] License server unreachable. Check internet, then retry. Support: support@graperoot.dev"; exit 1; }
+# v1.0.9: previously any 4xx/curl-fail collapsed into "License server unreachable".
+# Customers couldn't tell typo'd-key from corp-firewall block. Now we distinguish:
+#   - curl exit 6/7/28/TLS  → real network problem, with IT-whitelist instructions
+#   - HTTP 4xx + body       → server reached, show the body's "reason" field
+verify_license() {
+  local http_code curl_exit=0 attempt=0 max_attempts=3 backoff
+  local extra_args=()
 
-_is_valid=$("$PYTHON" -c "import json,sys;print('1' if json.loads('''$VERIFY_JSON''').get('valid') else '0')" 2>/dev/null || echo 0)
+  if [[ -n "${GRAPEROOT_CA_BUNDLE:-}" && -f "${GRAPEROOT_CA_BUNDLE}" ]]; then
+    echo "[verify] Using custom CA bundle: $GRAPEROOT_CA_BUNDLE"
+    extra_args+=(--cacert "$GRAPEROOT_CA_BUNDLE")
+  fi
+  if [[ -n "${HTTPS_PROXY:-${https_proxy:-}}" ]]; then
+    echo "[verify] Routing via proxy: ${HTTPS_PROXY:-$https_proxy}"
+  fi
+
+  while [[ $attempt -lt $max_attempts ]]; do
+    attempt=$((attempt + 1))
+    local tmpfile; tmpfile="$(mktemp -t grp-verify.XXXXXX 2>/dev/null || mktemp)"
+    http_code=$(curl -sSL -o "$tmpfile" -w "%{http_code}" \
+      -X POST "$API/v1/license/verify" \
+      -H "Content-Type: application/json" \
+      -d "{\"license_key\":\"$LICENSE_KEY\",\"host\":\"$(hostname 2>/dev/null || echo unknown)\",\"os\":\"$OS_TYPE\"}" \
+      --max-time 15 \
+      ${extra_args[@]+"${extra_args[@]}"} 2>/dev/null) && curl_exit=0 || curl_exit=$?
+    VERIFY_JSON="$(cat "$tmpfile" 2>/dev/null || echo '')"
+    rm -f "$tmpfile"
+
+    if [[ "$curl_exit" == "0" && -n "$http_code" && "$http_code" != "000" ]]; then
+      VERIFY_HTTP="$http_code"
+      return 0
+    fi
+
+    if [[ $attempt -lt $max_attempts ]]; then
+      backoff=$((attempt * 5))
+      echo "[verify] Attempt $attempt: cannot reach $API (curl exit $curl_exit). Retrying in ${backoff}s..." >&2
+      sleep "$backoff"
+    fi
+  done
+
+  local host; host="$(echo "$API" | sed -e 's|^https*://||' -e 's|^http*://||' -e 's|/.*||')"
+  echo "" >&2
+  echo "[error] Cannot reach license server after $max_attempts attempts." >&2
+  echo "" >&2
+  case "$curl_exit" in
+    6)  echo "  Cause: DNS lookup for $host failed." >&2
+        echo "  Likely: corporate DNS filter blocks the .dev TLD, or you're offline." >&2
+        echo "  Test:  nslookup $host" >&2 ;;
+    7)  echo "  Cause: TCP connection refused." >&2
+        echo "  Likely: corporate firewall blocks outbound HTTPS to Cloudflare." >&2 ;;
+    28) echo "  Cause: connection timed out (server did not respond within 15s)." >&2
+        echo "  Likely: corporate firewall silently dropping packets to $host." >&2 ;;
+    35|51|58|59|60|77)
+        echo "  Cause: TLS / certificate validation failed (curl exit $curl_exit)." >&2
+        echo "  Likely: SSL-inspecting corporate proxy with a custom CA." >&2
+        echo "  Fix:   export GRAPEROOT_CA_BUNDLE=/path/to/corp-ca.pem  and re-run." >&2 ;;
+    *)  echo "  Cause: curl exit $curl_exit (https://everything.curl.dev/usingcurl/returns)" >&2 ;;
+  esac
+  cat <<EOF >&2
+
+  -- Send to your IT team to whitelist --
+  HTTPS allow:  api.graperoot.dev, graperoot.dev, pub-pro-r2.graperoot.dev
+  IP allow:     104.21.91.161, 172.67.175.90  (Cloudflare, may rotate)
+
+  -- If you have a corporate proxy --
+  export HTTPS_PROXY=http://your-proxy:8080
+  export NO_PROXY=localhost,127.0.0.1
+  export GRAPEROOT_CA_BUNDLE=/path/to/corp-ca.pem  # only if SSL inspection
+  Then re-run the installer.
+
+  Support: support@graperoot.dev  (include this whole error message)
+EOF
+  exit 1
+}
+
+echo "[verify] Validating license..."
+verify_license
+
+# Server responded. Parse the body and check validity.
+_is_valid=$("$PYTHON" -c "import json,sys;d=json.loads(sys.argv[1]);print('1' if d.get('valid') else '0')" "$VERIFY_JSON" 2>/dev/null || echo 0)
 if [[ "$_is_valid" != "1" ]]; then
-  REASON=$("$PYTHON" -c "import json;print(json.loads('''$VERIFY_JSON''').get('reason','invalid'))" 2>/dev/null || echo invalid)
-  echo "[error] License rejected: $REASON"
-  echo "        Support: support@graperoot.dev"
+  REASON=$("$PYTHON" -c "import json,sys;print(json.loads(sys.argv[1]).get('reason','invalid response'))" "$VERIFY_JSON" 2>/dev/null || echo "HTTP $VERIFY_HTTP")
+  echo "[error] License rejected: $REASON" >&2
+  echo "        HTTP $VERIFY_HTTP from $API" >&2
+  echo "        Support: support@graperoot.dev" >&2
   exit 1
 fi
-CUSTOMER=$("$PYTHON" -c "import json;print(json.loads('''$VERIFY_JSON''').get('customer','—'))" 2>/dev/null)
-EXPIRES=$("$PYTHON"  -c "import json;print(json.loads('''$VERIFY_JSON''').get('expires','perpetual'))" 2>/dev/null)
-DL_URL=$("$PYTHON"   -c "import json;print(json.loads('''$VERIFY_JSON''')['download_url'])" 2>/dev/null)
+CUSTOMER=$("$PYTHON" -c "import json,sys;print(json.loads(sys.argv[1]).get('customer','-'))" "$VERIFY_JSON" 2>/dev/null)
+EXPIRES=$("$PYTHON"  -c "import json,sys;print(json.loads(sys.argv[1]).get('expires','perpetual'))" "$VERIFY_JSON" 2>/dev/null)
+DL_URL=$("$PYTHON"   -c "import json,sys;print(json.loads(sys.argv[1])['download_url'])" "$VERIFY_JSON" 2>/dev/null)
 echo "[verify] Valid  ·  $CUSTOMER  ·  expires: $EXPIRES"
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -241,7 +313,7 @@ if ! grep -q ".graperoot-pro/bin" "$SHELL_RC" 2>/dev/null; then
   echo "[install] Added $INSTALL_DIR/bin to PATH in $SHELL_RC"
 fi
 
-VER=$(cat "$INSTALL_DIR/bin/version.txt" 2>/dev/null || echo "1.0.8")
+VER=$(cat "$INSTALL_DIR/bin/version.txt" 2>/dev/null || echo "1.0.9")
 echo ""
 echo "╔══════════════════════════════════════════════════════════════╗"
 echo "║  Install complete.  GrapeRoot Pro v$VER                    ║"

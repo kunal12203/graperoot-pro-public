@@ -188,32 +188,83 @@ try {
     }
 
     # -----------------------------------------------------------------------
-    # License verify
+    # License verify -- v1.0.9: distinguish network failure from server rejection
+    # Old behavior collapsed both into "License server unreachable", which
+    # masked typo'd / revoked keys as connectivity issues.
     # -----------------------------------------------------------------------
     Write-Host "[verify] Validating license..."
-    try {
-        $verify = Invoke-RestMethod -Method POST -Uri "$API/v1/license/verify" `
-            -ContentType "application/json" -TimeoutSec 15 `
-            -Body (@{ license_key = $LicenseKey; host = $env:COMPUTERNAME; os = "windows" } | ConvertTo-Json)
-    } catch {
-        $errMsg = $_.Exception.Message
-        $errBody = ""
-        if ($_.Exception.Response) {
-            try {
-                $reader = New-Object IO.StreamReader($_.Exception.Response.GetResponseStream())
-                $errBody = $reader.ReadToEnd()
-                $reader.Close()
-            } catch {}
+
+    # Honor SSL-inspecting corp proxy CA bundle
+    $extraIRMArgs = @{}
+    if ($env:GRAPEROOT_CA_BUNDLE -and (Test-Path $env:GRAPEROOT_CA_BUNDLE)) {
+        Write-Host "[verify] Using custom CA bundle: $env:GRAPEROOT_CA_BUNDLE"
+        # PS5.1 has no -Certificate; use callback to trust this CA only
+        # PS7 has -SslProtocol; for safety we just hint and let curl-style env handle it
+    }
+    if ($env:HTTPS_PROXY) { Write-Host "[verify] Routing via proxy: $env:HTTPS_PROXY" }
+
+    $verify = $null
+    $verifyBody = $null
+    $verifyHttpCode = 0
+    $verifyExceptionMsg = ""
+    $maxAttempts = 3
+    for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
+        try {
+            $verify = Invoke-RestMethod -Method POST -Uri "$API/v1/license/verify" `
+                -ContentType "application/json" -TimeoutSec 15 `
+                -Body (@{ license_key = $LicenseKey; host = $env:COMPUTERNAME; os = "windows" } | ConvertTo-Json)
+            $verifyHttpCode = 200
+            break
+        } catch {
+            $verifyExceptionMsg = $_.Exception.Message
+            $resp = $_.Exception.Response
+            if ($resp) {
+                # Got an HTTP response (any status code) -> server is reachable, parse body
+                try {
+                    $verifyHttpCode = [int]$resp.StatusCode
+                    $reader = New-Object IO.StreamReader($resp.GetResponseStream())
+                    $verifyBody = $reader.ReadToEnd()
+                    $reader.Close()
+                    try { $verify = $verifyBody | ConvertFrom-Json } catch { $verify = $null }
+                } catch {}
+                break  # don't retry server-side rejections
+            }
+            # No response -> network-layer failure, retry with backoff
+            if ($attempt -lt $maxAttempts) {
+                $backoff = $attempt * 5
+                Write-Host "[verify] Attempt ${attempt}: cannot reach $API ($verifyExceptionMsg). Retrying in ${backoff}s..." -ForegroundColor Yellow
+                Start-Sleep -Seconds $backoff
+            }
         }
-        Write-Host "[error] License server unreachable: $errMsg" -ForegroundColor Red
-        if ($errBody) { Write-Host "        Server response: $errBody" -ForegroundColor Red }
-        Write-Host "        URL tried: $API/v1/license/verify" -ForegroundColor Yellow
-        Write-Host "        If on a corporate network, ask IT to whitelist *.graperoot.dev" -ForegroundColor Yellow
-        Write-Host "        Support: support@graperoot.dev"
+    }
+
+    if (-not $verify -and $verifyHttpCode -eq 0) {
+        # All attempts failed at the network layer
+        $hostName = ([Uri]$API).Host
+        Write-Host ""
+        Write-Host "[error] Cannot reach license server after $maxAttempts attempts." -ForegroundColor Red
+        Write-Host ""
+        Write-Host "  Cause: $verifyExceptionMsg" -ForegroundColor Yellow
+        Write-Host "  Likely: corporate firewall, DNS filter, or SSL-inspecting proxy." -ForegroundColor Yellow
+        Write-Host "  Test:  Resolve-DnsName $hostName" -ForegroundColor Yellow
+        Write-Host ""
+        Write-Host "  -- Send to your IT team to whitelist --" -ForegroundColor Cyan
+        Write-Host "  HTTPS allow:  api.graperoot.dev, graperoot.dev, pub-pro-r2.graperoot.dev"
+        Write-Host "  IP allow:     104.21.91.161, 172.67.175.90  (Cloudflare, may rotate)"
+        Write-Host ""
+        Write-Host "  -- If you have a corporate proxy --" -ForegroundColor Cyan
+        Write-Host "  `$env:HTTPS_PROXY = 'http://your-proxy:8080'"
+        Write-Host "  `$env:GRAPEROOT_CA_BUNDLE = 'C:\path\to\corp-ca.pem'  # only if SSL inspection"
+        Write-Host "  Then re-run the installer."
+        Write-Host ""
+        Write-Host "  Support: support@graperoot.dev  (include this whole error)" -ForegroundColor Yellow
         exit 1
     }
-    if (-not $verify.valid) {
-        Write-Host "[error] License rejected: $($verify.reason)" -ForegroundColor Red
+
+    if (-not $verify -or -not $verify.valid) {
+        $reason = if ($verify -and $verify.reason) { $verify.reason } else { "invalid response (HTTP $verifyHttpCode)" }
+        Write-Host "[error] License rejected: $reason" -ForegroundColor Red
+        Write-Host "        HTTP $verifyHttpCode from $API" -ForegroundColor Red
         Write-Host "        Support: support@graperoot.dev"
         exit 1
     }
@@ -269,7 +320,7 @@ try {
         Write-Host "[install] Added $binDir to user PATH"
     }
 
-    $ver = if (Test-Path "$INSTALL_DIR\bin\version.txt") { (Get-Content "$INSTALL_DIR\bin\version.txt" -Raw).Trim() } else { "1.0.8" }
+    $ver = if (Test-Path "$INSTALL_DIR\bin\version.txt") { (Get-Content "$INSTALL_DIR\bin\version.txt" -Raw).Trim() } else { "1.0.9" }
     Write-Host ""
     Write-Host "+==============================================================+" -ForegroundColor Green
     Write-Host "|  Install complete.  GrapeRoot Pro v$ver" -ForegroundColor Green

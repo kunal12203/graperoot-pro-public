@@ -20,13 +20,27 @@ $BaseUrl  = if ($env:GRAPEROOT_PRO_GH)  { $env:GRAPEROOT_PRO_GH }  else { "https
 function Read-Key { if (Test-Path $LicenseFile) { (Get-Content $LicenseFile -Raw).Trim() } else { $null } }
 
 function Verify-Online {
+    # v1.0.9: distinguish network failure (return $null -> 7d grace) from
+    # server rejection (return parsed body with valid:false -> immediate exit).
+    # Old behavior: any 4xx -> caught -> $null -> grace, masking revoked keys.
     $k = Read-Key
     if (-not $k) { return $null }
     try {
         return Invoke-RestMethod -Method POST -Uri "$API/v1/license/verify" `
             -ContentType "application/json" -TimeoutSec 10 `
             -Body (@{ license_key = $k; host = $env:COMPUTERNAME; os = "windows" } | ConvertTo-Json)
-    } catch { return $null }
+    } catch {
+        # Got an HTTP response (any code) -> server reachable, parse the body
+        if ($_.Exception.Response) {
+            try {
+                $reader = New-Object IO.StreamReader($_.Exception.Response.GetResponseStream())
+                $body = $reader.ReadToEnd(); $reader.Close()
+                return ($body | ConvertFrom-Json)
+            } catch { return $null }
+        }
+        # No response -> network failure -> let caller fall into offline grace
+        return $null
+    }
 }
 
 function Self-Update {

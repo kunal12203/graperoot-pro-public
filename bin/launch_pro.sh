@@ -64,13 +64,28 @@ self_update() {
 }
 
 # ── License verification ───────────────────────────────────────────────────
+# v1.0.9: drop -f so 4xx (revoked/expired/unknown) returns the body instead of empty.
+# Empty body now exclusively means "could not connect" → falls into 7-day offline grace.
+# Body-with-valid:false → real rejection → exit with proper reason (not "offline").
 _verify_online() {
   local key; key="$(cat "$LICENSE_FILE" 2>/dev/null)"
   [[ -z "$key" ]] && return 1
-  curl -fsSL -X POST "$API/v1/license/verify" \
+  local extra=()
+  [[ -n "${GRAPEROOT_CA_BUNDLE:-}" && -f "${GRAPEROOT_CA_BUNDLE}" ]] && extra+=(--cacert "$GRAPEROOT_CA_BUNDLE")
+  local tmp; tmp="$(mktemp -t grp-rt.XXXXXX 2>/dev/null || mktemp)"
+  local code; code=$(curl -sSL -o "$tmp" -w "%{http_code}" \
+    -X POST "$API/v1/license/verify" \
     -H "Content-Type: application/json" \
     -d "{\"license_key\":\"$key\",\"host\":\"$(hostname 2>/dev/null || echo unknown)\",\"os\":\"$(uname -s)\"}" \
-    --max-time 10 2>/dev/null
+    --max-time 10 \
+    ${extra[@]+"${extra[@]}"} 2>/dev/null) || code=""
+  # Network-layer failure → empty stdout (caller treats as offline)
+  if [[ -z "$code" || "$code" == "000" ]]; then
+    rm -f "$tmp"
+    return 1
+  fi
+  cat "$tmp"
+  rm -f "$tmp"
 }
 
 check_license() {

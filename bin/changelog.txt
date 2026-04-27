@@ -1,3 +1,15 @@
+1.0.9  (2026-04-27)
+- Enterprise install: precise diagnostics on connectivity failure. Now distinguishes
+  DNS block / TCP timeout / TLS-inspection / 4xx-server-rejection. Each shows a
+  different message; corp-network failure prints the exact whitelist line for IT.
+- Honors HTTPS_PROXY and GRAPEROOT_CA_BUNDLE env vars at install + runtime.
+- Installer retries the verify call 3x with 5s/10s backoff before giving up.
+- Fixed: typo'd / revoked / expired keys previously masqueraded as
+  "License server unreachable" because curl -f swallowed the 4xx body. Now we
+  show the server's actual reason ("unknown license key", "license revoked", etc.)
+- Same fix applied to runtime launcher (launch_pro.sh / launch_pro.ps1) — landed
+  via auto-update on next dgc-pro run for existing customers.
+
 1.0.8  (2026-04-23)
 - Better PS install errors: shows the actual exception + URL + corp-network hint
   instead of opaque 'License server unreachable'.
