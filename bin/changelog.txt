@@ -1,3 +1,11 @@
+1.0.11  (2026-04-28)
+- UX: dgc-pro now writes/prepends a CLAUDE.md "Dual-Graph Context Policy"
+  to the project root on first run. Without it, Claude knew graperoot-pro
+  was loaded but never called its tools — defaulting to native Read/Grep
+  instead. Now Claude proactively calls graph_continue / graph_read.
+- Idempotent: existing CLAUDE.md is never overwritten; the policy is only
+  prepended if no `dgc-policy-vN` marker is present. User content stays.
+
 1.0.10  (2026-04-28)
 - ARCHITECTURE: graperoot-pro is now a stdio MCP server (was HTTP on random port).
   - Claude Code spawns the server on session start, kills it on session end.
