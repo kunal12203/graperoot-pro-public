@@ -176,7 +176,7 @@ fi
 # ══════════════════════════════════════════════════════════════════════════════
 # LICENSE VERIFY — precise diagnostics on failure (network vs server vs key)
 # ══════════════════════════════════════════════════════════════════════════════
-# v1.0.9: previously any 4xx/curl-fail collapsed into "License server unreachable".
+# v1.0.10: previously any 4xx/curl-fail collapsed into "License server unreachable".
 # Customers couldn't tell typo'd-key from corp-firewall block. Now we distinguish:
 #   - curl exit 6/7/28/TLS  → real network problem, with IT-whitelist instructions
 #   - HTTP 4xx + body       → server reached, show the body's "reason" field
@@ -313,7 +313,7 @@ if ! grep -q ".graperoot-pro/bin" "$SHELL_RC" 2>/dev/null; then
   echo "[install] Added $INSTALL_DIR/bin to PATH in $SHELL_RC"
 fi
 
-VER=$(cat "$INSTALL_DIR/bin/version.txt" 2>/dev/null || echo "1.0.9")
+VER=$(cat "$INSTALL_DIR/bin/version.txt" 2>/dev/null || echo "1.0.10")
 echo ""
 echo "╔══════════════════════════════════════════════════════════════╗"
 echo "║  Install complete.  GrapeRoot Pro v$VER                    ║"

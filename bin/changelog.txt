@@ -1,3 +1,14 @@
+1.0.10  (2026-04-28)
+- ARCHITECTURE: graperoot-pro is now a stdio MCP server (was HTTP on random port).
+  - Claude Code spawns the server on session start, kills it on session end.
+  - No more orphan processes, no port management, no stale .mcp.json entries.
+  - `claude mcp list` works correctly outside of `dgc-pro` invocations.
+  - Same pattern as filesystem/git MCPs in the official MCP spec.
+- launch.py: write_mcp_config() now writes a stdio command entry. Existing
+  HTTP-based .mcp.json entries are auto-overwritten on next dgc-pro run.
+- Server: --stdio flag added to mcp_graph_server_v7.4.py. HTTP mode preserved
+  for the dashboard ingest workflow (graph upload, system-map API).
+
 1.0.9  (2026-04-27)
 - Enterprise install: precise diagnostics on connectivity failure. Now distinguishes
   DNS block / TCP timeout / TLS-inspection / 4xx-server-rejection. Each shows a
