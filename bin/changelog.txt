@@ -1,3 +1,20 @@
+1.0.12  (2026-04-28)
+- AUTO-STALENESS: graperoot-pro now keeps its index in sync with the live
+  filesystem at per-file granularity, on every tool call. No "graph is stale,
+  let me read directly" fallbacks from Claude.
+  - graph_read: stat -> hash -> reparse just THE one file if changed (~50-200ms
+    when triggered, 1us in steady state). Symbol line ranges always reflect
+    current disk content; no more wrong slices after edits.
+  - graph_continue: drops recommendations for deleted files (cheap stat per
+    recommended file).
+  - Background safety net: if >20 stale files detected within 60s (e.g. after
+    `git pull`), an async full re-scan runs in a daemon thread and replaces
+    the cache atomically. Current request never blocks on it.
+  - Updated graph flushed to disk every 30s when dirty (atomic tmp+rename).
+  - Per-file asyncio-style threading.Lock prevents concurrent reparse races.
+  - Edge cases: deleted, renamed (=delete+add), touched-but-unchanged,
+    permission-denied, large files, FAT32 mtime granularity, partial reads.
+
 1.0.11  (2026-04-28)
 - UX: dgc-pro now writes/prepends a CLAUDE.md "Dual-Graph Context Policy"
   to the project root on first run. Without it, Claude knew graperoot-pro

@@ -188,7 +188,7 @@ try {
     }
 
     # -----------------------------------------------------------------------
-    # License verify -- v1.0.11: distinguish network failure from server rejection
+    # License verify -- v1.0.12: distinguish network failure from server rejection
     # Old behavior collapsed both into "License server unreachable", which
     # masked typo'd / revoked keys as connectivity issues.
     # -----------------------------------------------------------------------
@@ -320,7 +320,7 @@ try {
         Write-Host "[install] Added $binDir to user PATH"
     }
 
-    $ver = if (Test-Path "$INSTALL_DIR\bin\version.txt") { (Get-Content "$INSTALL_DIR\bin\version.txt" -Raw).Trim() } else { "1.0.11" }
+    $ver = if (Test-Path "$INSTALL_DIR\bin\version.txt") { (Get-Content "$INSTALL_DIR\bin\version.txt" -Raw).Trim() } else { "1.0.12" }
     Write-Host ""
     Write-Host "+==============================================================+" -ForegroundColor Green
     Write-Host "|  Install complete.  GrapeRoot Pro v$ver" -ForegroundColor Green
