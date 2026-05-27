@@ -30,7 +30,7 @@ jobs:
       - name: Install
         shell: powershell
         env:
-          GRAPEROOT_LICENSE_KEY: ${{ inputs.license_key }}
+          GRAPEROOT_LICENSE_KEY: ${{ secrets.GRAPEROOT_LICENSE_KEY || inputs.license_key }}
         run: |
           $ProgressPreference = "SilentlyContinue"
           irm https://graperoot.dev/pro/install.ps1 | iex
@@ -46,7 +46,7 @@ jobs:
       - name: Install
         shell: pwsh
         env:
-          GRAPEROOT_LICENSE_KEY: ${{ inputs.license_key }}
+          GRAPEROOT_LICENSE_KEY: ${{ secrets.GRAPEROOT_LICENSE_KEY || inputs.license_key }}
         run: |
           $ProgressPreference = "SilentlyContinue"
           irm https://graperoot.dev/pro/install.ps1 | iex
@@ -61,7 +61,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Install
         env:
-          GRAPEROOT_LICENSE_KEY: ${{ inputs.license_key }}
+          GRAPEROOT_LICENSE_KEY: ${{ secrets.GRAPEROOT_LICENSE_KEY || inputs.license_key }}
         run: |
           # ripgrep is preinstalled on ubuntu-latest, python3 too
           rg --version | head -1 || sudo apt-get install -y ripgrep
@@ -77,7 +77,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Install
         env:
-          GRAPEROOT_LICENSE_KEY: ${{ inputs.license_key }}
+          GRAPEROOT_LICENSE_KEY: ${{ secrets.GRAPEROOT_LICENSE_KEY || inputs.license_key }}
         run: |
           dnf install -y python3.11 python3.11-devel ripgrep curl tar gzip findutils >/dev/null
           curl -fsSL https://graperoot.dev/pro/install.sh | bash -s -- "$GRAPEROOT_LICENSE_KEY"
