@@ -6,7 +6,7 @@ $bin     = Join-Path $proHome "bin"
 $expected = @(
     $proHome,
     (Join-Path $proHome "license.key"),
-    (Join-Path $proHome "mcp_graph_server_v7.4.py"),
+    (Join-Path $proHome "mcp_graph_server_v7.5.py"),
     (Join-Path $proHome "graph_builder.py"),
     (Join-Path $proHome "launch.py"),
     (Join-Path $proHome "venv\Scripts\python.exe"),
@@ -20,7 +20,7 @@ foreach ($p in $expected) {
 Write-Host "[ok] all expected files present"
 
 # Security regression guard: server must NOT bind 0.0.0.0
-$serverContent = Get-Content (Join-Path $proHome "mcp_graph_server_v7.4.py") -Raw
+$serverContent = Get-Content (Join-Path $proHome "mcp_graph_server_v7.5.py") -Raw
 if ($serverContent -match [regex]::Escape("0.0.0.0")) {
     Write-Host "FAIL: server binds to 0.0.0.0 - security regression"
     exit 1
