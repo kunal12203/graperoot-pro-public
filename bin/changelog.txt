@@ -1,3 +1,8 @@
+1.0.24  (2026-05-27)
+- FIXED: Windows self-update was missing dg-pro.cmd and dg-pro.ps1 from the
+  refresh list in launch_pro.ps1. Windows users on v1.0.21+ would not get the
+  dg-pro Codex shim on auto-update. Now included alongside dgc-pro.cmd/.ps1.
+
 1.0.23  (2026-05-27)
 - FIXED: MCP server crash when a project's cached graph was built from a different root
   directory (e.g. beads-main instead of admindash). Root cause: graph was copied/reused
