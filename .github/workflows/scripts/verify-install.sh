@@ -8,7 +8,7 @@ fail() { echo "FAIL: $1"; exit 1; }
 
 [ -d "$PRO" ]                                      || fail "install dir missing"
 [ -f "$PRO/license.key" ]                          || fail "license.key missing"
-[ -f "$PRO/mcp_graph_server_v7.4.py" ]             || fail "MCP server missing"
+[ -f "$PRO/mcp_graph_server_v7.5.py" ]             || fail "MCP server missing"
 [ -f "$PRO/graph_builder.py" ]                     || fail "graph_builder missing"
 [ -f "$PRO/launch.py" ]                            || fail "launch.py missing"
 [ -x "$PRO/venv/bin/python3" ]                     || fail "venv python missing"
@@ -18,7 +18,7 @@ fail() { echo "FAIL: $1"; exit 1; }
 echo "[ok] all expected files present"
 
 # Security regression guard
-if grep -q '0\.0\.0\.0' "$PRO/mcp_graph_server_v7.4.py"; then
+if grep -q '0\.0\.0\.0' "$PRO/mcp_graph_server_v7.5.py"; then
   fail "server binds to 0.0.0.0 — security regression"
 fi
 echo "[ok] server binds 127.0.0.1 only"
