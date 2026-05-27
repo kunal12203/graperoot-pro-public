@@ -1,3 +1,16 @@
+1.0.25  (2026-05-27)
+- FIXED: install.sh was missing dg-pro and graperoot-pro from the download + chmod
+  list. Fresh installs on Mac/Linux would get dgc-pro only; dg-pro (Codex) and
+  graperoot-pro --gemini/--opencode/--cursor were not installed.
+- FIXED: install.ps1 was missing dg-pro.cmd/.ps1 and graperoot-pro.cmd/.ps1 from
+  the download list. Fresh installs on Windows had same gap.
+- NEW: graperoot-pro shim added (Unix + Windows) — use for Gemini, opencode,
+  Cursor: graperoot-pro --gemini /path, graperoot-pro --opencode /path, etc.
+- FIXED: self-update lists in launch_pro.sh and launch_pro.ps1 now include
+  graperoot-pro shims so existing users get them on next dgc-pro run.
+- IMPROVED: installer usage instructions now show all four launch commands
+  (dgc-pro, dg-pro, graperoot-pro --gemini, graperoot-pro --opencode).
+
 1.0.24  (2026-05-27)
 - FIXED: Windows self-update was missing dg-pro.cmd and dg-pro.ps1 from the
   refresh list in launch_pro.ps1. Windows users on v1.0.21+ would not get the
