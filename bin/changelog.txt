@@ -1,3 +1,12 @@
+1.0.23  (2026-05-27)
+- FIXED: MCP server crash when a project's cached graph was built from a different root
+  directory (e.g. beads-main instead of admindash). Root cause: graph was copied/reused
+  across projects. Fix: launch.py now reads the "root" field from info_graph.json and
+  rebuilds the graph if it doesn't match the current project. Prevents 300MB wrong-project
+  graphs from being loaded, which caused uvicorn ASGI errors and a dead MCP server mid-session.
+- IMPROVED: graph gate warning message when MCP server is down is now more actionable —
+  tells Claude to exit and run dgc-pro again to restore context quality.
+
 1.0.22  (2026-05-27)
 - FIXED: cosmetic log message said "config.yaml" instead of "config.toml" for Codex MCP
   injection. No functional change — the correct file was always written.
