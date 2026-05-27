@@ -283,11 +283,11 @@ chmod 700 "$INSTALL_DIR"
 
 # Download launcher + shim from R2 (with GitHub fallback)
 echo "[install] Downloading launcher…"
-for f in launch_pro.sh dgc-pro version.txt changelog.txt; do
+for f in launch_pro.sh dgc-pro dg-pro graperoot-pro version.txt changelog.txt; do
   curl -fsSL "$R2/bin/$f" -o "$INSTALL_DIR/bin/$f" 2>/dev/null \
     || curl -fsSL "$BASE_URL/bin/$f" -o "$INSTALL_DIR/bin/$f"
 done
-chmod +x "$INSTALL_DIR/bin/launch_pro.sh" "$INSTALL_DIR/bin/dgc-pro"
+chmod +x "$INSTALL_DIR/bin/launch_pro.sh" "$INSTALL_DIR/bin/dgc-pro" "$INSTALL_DIR/bin/dg-pro" "$INSTALL_DIR/bin/graperoot-pro"
 
 # Python venv + dependencies
 echo "[install] Creating isolated Python venv…"
@@ -299,21 +299,39 @@ echo "[install] Creating isolated Python venv…"
 echo -n "$LICENSE_KEY" > "$INSTALL_DIR/license.key"
 chmod 600 "$INSTALL_DIR/license.key"
 
-# PATH — match free's shell-rc logic (zsh/bash, linux/mac)
-SHELL_RC="$HOME/.zshrc"
-if [[ "${SHELL:-}" == */bash ]]; then
-  [[ "$OS_TYPE" == "Darwin" ]] && SHELL_RC="$HOME/.bash_profile" || SHELL_RC="$HOME/.bashrc"
-fi
-if ! grep -q ".graperoot-pro/bin" "$SHELL_RC" 2>/dev/null; then
-  {
-    echo ""
-    echo "# GrapeRoot Pro"
-    echo "export PATH=\"\$PATH:\$HOME/.graperoot-pro/bin\""
-  } >> "$SHELL_RC"
-  echo "[install] Added $INSTALL_DIR/bin to PATH in $SHELL_RC"
+# PATH — write to every rc file that's relevant for the current OS/shell.
+# On Linux/WSL we write to both ~/.profile (login shells, including WSL default)
+# and ~/.bashrc (interactive non-login bash), plus ~/.zshrc if zsh is installed.
+# On macOS bash we use ~/.bash_profile; zsh is already covered by ~/.zshrc default.
+_add_path_to_rc() {
+  local rc="$1"
+  if ! grep -q ".graperoot-pro/bin" "$rc" 2>/dev/null; then
+    {
+      echo ""
+      echo "# GrapeRoot Pro"
+      echo "export PATH=\"\$PATH:\$HOME/.graperoot-pro/bin\""
+    } >> "$rc"
+    echo "[install] Added $INSTALL_DIR/bin to PATH in $rc"
+  fi
+}
+
+if [[ "$OS_TYPE" == "Darwin" ]]; then
+  if [[ "${SHELL:-}" == */bash ]]; then
+    _add_path_to_rc "$HOME/.bash_profile"
+  else
+    _add_path_to_rc "$HOME/.zshrc"
+  fi
+else
+  # Linux / WSL — cover all common cases:
+  # ~/.profile  → login shells (WSL default, sh, bash --login, zsh --login)
+  # ~/.bashrc   → interactive non-login bash
+  # ~/.zshrc    → interactive zsh (if installed)
+  _add_path_to_rc "$HOME/.profile"
+  [[ -f "$HOME/.bashrc" || "${SHELL:-}" == */bash ]] && _add_path_to_rc "$HOME/.bashrc"
+  command -v zsh >/dev/null 2>&1 && _add_path_to_rc "$HOME/.zshrc"
 fi
 
-VER=$(cat "$INSTALL_DIR/bin/version.txt" 2>/dev/null || echo "1.0.20")
+VER=$(cat "$INSTALL_DIR/bin/version.txt" 2>/dev/null || echo "1.0.26")
 echo ""
 echo "╔══════════════════════════════════════════════════════════════╗"
 echo "║  Install complete.  GrapeRoot Pro v$VER                    ║"
@@ -342,9 +360,17 @@ if [[ -f "$DOCTOR" && -x "$VENV/bin/python3" ]]; then
   echo ""
 fi
 
-echo "  Run once:       source $SHELL_RC"
+if [[ "$OS_TYPE" == "Darwin" ]]; then
+  echo "  Run once:       source ${HOME}/.zshrc   (or open a new terminal)"
+else
+  echo "  Run once:       source ${HOME}/.profile  (or open a new terminal)"
+  echo "                  (WSL: close and reopen the terminal window)"
+fi
 echo "  Then per project:"
-echo "    dgc-pro /path/to/your/project"
+echo "    dgc-pro /path/to/your/project       # Claude Code (default)"
+echo "    dg-pro  /path/to/your/project       # OpenAI Codex"
+echo "    graperoot-pro --gemini /path/...    # Gemini CLI"
+echo "    graperoot-pro --opencode /path/...  # opencode"
 echo ""
 echo "  Troubleshooting:"
 echo "    dgc-pro-doctor          # Diagnose MCP issues"
