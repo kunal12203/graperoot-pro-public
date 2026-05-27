@@ -1,3 +1,7 @@
+1.0.22  (2026-05-27)
+- FIXED: cosmetic log message said "config.yaml" instead of "config.toml" for Codex MCP
+  injection. No functional change — the correct file was always written.
+
 1.0.21  (2026-05-27)
 - NEW: Multi-platform support — graperoot-pro now launches any AI tool, not just Claude.
   Flags: --claude (default), --codex, --gemini, --opencode, --cursor.
