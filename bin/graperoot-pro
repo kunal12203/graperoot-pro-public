@@ -1,7 +1,5 @@
 #!/usr/bin/env bash
 # graperoot-pro — GrapeRoot Pro multi-platform launcher (Unix shim)
-# Usage:
-#   graperoot-pro [project] [--claude|--codex|--gemini|--opencode|--cursor] [extra args]
 set -euo pipefail
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-exec "$SCRIPT_DIR/launch_pro.sh" "$@"
+INSTALL_DIR="${GRAPEROOT_PRO_HOME:-$HOME/.graperoot-pro}"
+exec "$INSTALL_DIR/venv/bin/python3" "$INSTALL_DIR/launch.py" "${@}"
