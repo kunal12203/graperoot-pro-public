@@ -1,4 +1,7 @@
 @echo off
-rem dg-pro — GrapeRoot Pro launcher for Codex (Windows cmd shim)
-powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0launch_pro.ps1" --codex %*
-exit /b %ERRORLEVEL%
+if defined GRAPEROOT_PRO_HOME (
+    set "_GRP=%GRAPEROOT_PRO_HOME%"
+) else (
+    set "_GRP=%USERPROFILE%\.graperoot-pro"
+)
+"%_GRP%\venv\Scripts\python.exe" "%_GRP%\launch.py" %1 --codex %*
