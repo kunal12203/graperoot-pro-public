@@ -83,7 +83,14 @@ try {
         } catch { return $false }
     }
 
+    # Detect piped mode (irm ... | iex): MyCommand.Path is empty when running from a pipe
+    $IsPiped = [string]::IsNullOrEmpty($MyInvocation.MyCommand.Path)
+
     function Confirm-Install([string]$Prompt) {
+        if ($IsPiped) {
+            Write-Host "$Prompt [Y/n] Y  (auto-yes: piped mode)"
+            return $true
+        }
         $a = Read-Host "$Prompt [Y/n]"
         return ($a -notmatch '^[Nn]')
     }
