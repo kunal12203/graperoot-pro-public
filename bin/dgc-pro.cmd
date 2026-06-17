@@ -1,7 +1,4 @@
 @echo off
-if defined GRAPEROOT_PRO_HOME (
-    set "_GRP=%GRAPEROOT_PRO_HOME%"
-) else (
-    set "_GRP=%USERPROFILE%\.graperoot-pro"
-)
-"%_GRP%\venv\Scripts\python.exe" "%_GRP%\launch.py" %*
+rem dgc-pro — GrapeRoot Pro launcher (Windows cmd shim)
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0launch_pro.ps1" %*
+exit /b %ERRORLEVEL%
