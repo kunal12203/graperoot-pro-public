@@ -1,3 +1,10 @@
+1.0.54  (2026-06-18)
+- Fixed: Windows stop hook now uses a graperoot-stop.cmd shim (in PATH'd bin/)
+  instead of a hardcoded absolute python path. Eliminates "command not found"
+  errors regardless of which shell (cmd.exe, Git Bash, PowerShell) Claude Code
+  uses to invoke the hook. Root cause: absolute venv python paths with backslashes
+  were shell-interpreted in bash, stripping separators → unresolvable command.
+
 1.0.53  (2026-06-17)
 - Fixed: stop hook no longer sends zero-savings telemetry when dgc-pro was
   never running (e.g. plain `claude` invocation). Send is now gated on
