@@ -133,7 +133,7 @@ if (Test-Path $projSettings) {
     try {
         $raw = Get-Content $projSettings -Raw -Encoding UTF8
         if ($raw -match 'stop_hook\.py' -and $raw -notmatch 'graperoot-stop') {
-            $raw = $raw -replace '"command"\s*:\s*"[^"]*stop_hook\.py[^"]*"', '"command": "graperoot-stop"'
+            $raw = $raw -replace '"command"\s*:\s*"(?:[^"\\]|\\.)*stop_hook\.py(?:[^"\\]|\\.)*"', '"command": "graperoot-stop"'
             Set-Content $projSettings -Value $raw -Encoding UTF8 -NoNewline
         }
     } catch {}
