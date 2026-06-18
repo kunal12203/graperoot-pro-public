@@ -1,0 +1,2 @@
+#!/bin/sh
+"$HOME/.graperoot-pro/venv/Scripts/python.exe" "$HOME/.graperoot-pro/stop_hook.py"
