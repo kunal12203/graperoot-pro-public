@@ -64,7 +64,7 @@ function Self-Update {
             Invoke-WebRequest $resp.download_url -OutFile $tmp -UseBasicParsing -TimeoutSec 60
             & tar -xzf $tmp -C $InstallDir --strip-components=1
             Remove-Item $tmp -ErrorAction SilentlyContinue
-            foreach ($f in @("launch_pro.ps1","dgc-pro.cmd","dgc-pro.ps1","dg-pro.cmd","dg-pro.ps1","graperoot-pro.cmd","graperoot-pro.ps1","version.txt","changelog.txt")) {
+            foreach ($f in @("launch_pro.ps1","dgc-pro.cmd","dgc-pro.ps1","dg-pro.cmd","dg-pro.ps1","graperoot-pro.cmd","graperoot-pro.ps1","graperoot-stop.cmd","version.txt","changelog.txt")) {
                 $dst = Join-Path $BinDir "$f.new"
                 $ok = $false
                 # R2 first, GitHub fallback
@@ -125,6 +125,19 @@ Check-License
 
 $Project = if ($args.Count -gt 0) { $args[0] } else { (Get-Location).Path }
 $rest    = if ($args.Count -gt 1) { $args[1..($args.Count - 1)] } else { @() }
+
+# Repair stale stop hooks that have backslash python paths (pre-v1.0.52 bug).
+# Replaces any stop hook command containing "python.exe" with "graperoot-stop".
+$projSettings = Join-Path $Project ".claude\settings.local.json"
+if (Test-Path $projSettings) {
+    try {
+        $raw = Get-Content $projSettings -Raw -Encoding UTF8
+        if ($raw -match 'stop_hook\.py' -and $raw -notmatch 'graperoot-stop') {
+            $raw = $raw -replace '"command"\s*:\s*"[^"]*stop_hook\.py[^"]*"', '"command": "graperoot-stop"'
+            Set-Content $projSettings -Value $raw -Encoding UTF8 -NoNewline
+        }
+    } catch {}
+}
 
 $env:GRAPEROOT_PRO_HOME = $InstallDir
 & $VenvPy (Join-Path $InstallDir "launch.py") $Project @rest
